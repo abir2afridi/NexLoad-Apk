@@ -63,134 +63,107 @@ fun BrowserTab(viewModel: MainViewModel) {
 
     Scaffold(
         topBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(if (isIncognito) Color(0xFF1C1B1F) else MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp))
-                    .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+            Surface(
+                tonalElevation = 3.dp,
+                color = if (isIncognito) Color(0xFF1C1B1F) else MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp)
             ) {
-                // Address Bar row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Bookmark toggle
-                    val isBookmarked = viewModel.isUrlBookmarked(currentUrl)
-                    IconButton(
-                        onClick = {
-                            viewModel.toggleBookmark(currentUrl, webViewInstance?.title ?: "Web Page")
-                            Toast.makeText(context, if (isBookmarked) "Bookmark removed" else "Page bookmarked", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.testTag("bookmark_toggle_btn")
-                    ) {
-                        Icon(
-                            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Bookmark",
-                            tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // URL TextField
-                    TextField(
-                        value = urlInput,
-                        onValueChange = { urlInput = it },
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("browser_address_bar")
-                            .height(52.dp),
-                        placeholder = { Text("Search or enter website...") },
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        shape = RoundedCornerShape(24.dp),
-                        leadingIcon = {
-                            Icon(
-                                imageVector = if (isHttpsOnly) Icons.Default.Lock else Icons.Default.Language,
-                                contentDescription = "Security Status",
-                                tint = if (isHttpsOnly) MaterialTheme.colorScheme.primary else Color.Gray,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        trailingIcon = {
-                            if (isIncognito) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
-                                        .background(Color.DarkGray, shape = CircleShape)
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text("Private", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = {
-                                var destination = urlInput.trim()
-                                if (destination.isNotBlank()) {
-                                    if (!destination.startsWith("http://") && !destination.startsWith("https://")) {
-                                        if (destination.contains(".") && !destination.contains(" ")) {
-                                            destination = "https://$destination"
-                                        } else {
-                                            destination = "https://google.com/search?q=$destination"
-                                        }
-                                    }
-                                    webViewInstance?.loadUrl(destination)
-                                }
-                            }
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    // Bookmark List Button
-                    IconButton(
-                        onClick = { showBookmarksSheet = true },
-                        modifier = Modifier.testTag("bookmarks_list_btn")
-                    ) {
-                        Icon(Icons.Default.Bookmarks, contentDescription = "Bookmarks")
-                    }
-                }
-
-                // Toolbar Controls Row
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .statusBarsPadding()
+                        .padding(bottom = 6.dp)
                 ) {
-                    Row {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Navigation controls
                         IconButton(
                             onClick = { webViewInstance?.goBack() },
                             enabled = webViewInstance?.canGoBack() == true,
-                            modifier = Modifier.testTag("browser_back")
+                            modifier = Modifier.size(34.dp).testTag("browser_back")
                         ) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", modifier = Modifier.size(20.dp))
                         }
                         IconButton(
                             onClick = { webViewInstance?.goForward() },
                             enabled = webViewInstance?.canGoForward() == true,
-                            modifier = Modifier.testTag("browser_forward")
+                            modifier = Modifier.size(34.dp).testTag("browser_forward")
                         ) {
-                            Icon(Icons.Default.ArrowForward, contentDescription = "Forward")
+                            Icon(Icons.Default.ArrowForward, contentDescription = "Forward", modifier = Modifier.size(20.dp))
                         }
                         IconButton(
                             onClick = { webViewInstance?.reload() },
-                            modifier = Modifier.testTag("browser_reload")
+                            modifier = Modifier.size(34.dp).testTag("browser_reload")
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(20.dp))
                         }
-                    }
 
-                    // Incognito & Tracker blocking toggles
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Incognito switch
+                        // Address Bar
+                        TextField(
+                            value = urlInput,
+                            onValueChange = { urlInput = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .padding(horizontal = 4.dp)
+                                .testTag("browser_address_bar"),
+                            placeholder = { Text("Search...", style = MaterialTheme.typography.bodyMedium) },
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            shape = RoundedCornerShape(24.dp),
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (isHttpsOnly) Icons.Default.Lock else Icons.Default.Language,
+                                    contentDescription = null,
+                                    tint = if (isHttpsOnly) MaterialTheme.colorScheme.primary else Color.Gray,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            trailingIcon = {
+                                val isBookmarked = viewModel.isUrlBookmarked(currentUrl)
+                                IconButton(
+                                    onClick = {
+                                        viewModel.toggleBookmark(currentUrl, webViewInstance?.title ?: "Web Page")
+                                        Toast.makeText(context, if (isBookmarked) "Bookmark removed" else "Page bookmarked", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(32.dp).testTag("bookmark_toggle_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                                        contentDescription = "Bookmark",
+                                        tint = if (isBookmarked) MaterialTheme.colorScheme.primary else Color.Gray,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            },
+                            textStyle = MaterialTheme.typography.bodyMedium,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    var destination = urlInput.trim()
+                                    if (destination.isNotBlank()) {
+                                        if (!destination.startsWith("http://") && !destination.startsWith("https://")) {
+                                            if (destination.contains(".") && !destination.contains(" ")) {
+                                                destination = "https://$destination"
+                                            } else {
+                                                destination = "https://google.com/search?q=$destination"
+                                            }
+                                        }
+                                        webViewInstance?.loadUrl(destination)
+                                    }
+                                }
+                            )
+                        )
+
+                        // Privacy toggles
                         IconButton(
                             onClick = {
                                 val newState = !isIncognito
@@ -204,41 +177,50 @@ fun BrowserTab(viewModel: MainViewModel) {
                                     Toast.makeText(context, "Standard Mode Activated", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            modifier = Modifier.testTag("incognito_toggle")
+                            modifier = Modifier.size(34.dp).testTag("incognito_toggle")
                         ) {
                             Icon(
                                 imageVector = if (isIncognito) Icons.Filled.VisibilityOff else Icons.Outlined.Visibility,
                                 contentDescription = "Incognito",
-                                tint = if (isIncognito) MaterialTheme.colorScheme.primary else Color.Gray
+                                tint = if (isIncognito) MaterialTheme.colorScheme.primary else Color.Gray,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
 
-                        // Tracker blocker status
                         IconButton(
                             onClick = {
                                 viewModel.isTrackerBlocking.value = !isTrackerBlocking
                                 Toast.makeText(context, "Tracker Blocker: " + if (!isTrackerBlocking) "ENABLED" else "DISABLED", Toast.LENGTH_SHORT).show()
-                            }
+                            },
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Icon(
                                 imageVector = if (isTrackerBlocking) Icons.Filled.Shield else Icons.Outlined.Shield,
                                 contentDescription = "Tracker blocker",
-                                tint = if (isTrackerBlocking) Color(0xFF4CAF50) else Color.Gray
+                                tint = if (isTrackerBlocking) Color(0xFF4CAF50) else Color.Gray,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-                    }
-                }
 
-                // Loading Progress Indicator
-                if (progressVal in 1..99) {
-                    LinearProgressIndicator(
-                        progress = { progressVal / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .padding(top = 2.dp),
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                        IconButton(
+                            onClick = { showBookmarksSheet = true },
+                            modifier = Modifier.size(34.dp).testTag("bookmarks_list_btn")
+                        ) {
+                            Icon(Icons.Default.Bookmarks, contentDescription = "Bookmarks", modifier = Modifier.size(20.dp))
+                        }
+                    }
+
+                    // Loading Progress Indicator
+                    if (progressVal in 1..99) {
+                        LinearProgressIndicator(
+                            progress = { progressVal / 100f },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp)
+                                .padding(top = 2.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         },
@@ -246,7 +228,9 @@ fun BrowserTab(viewModel: MainViewModel) {
             if (detectedMedia.isNotEmpty()) {
                 FloatingActionButton(
                     onClick = { showMediaSheet = true },
-                    modifier = Modifier.testTag("media_detected_fab"),
+                    modifier = Modifier
+                        .padding(bottom = 90.dp)
+                        .testTag("media_detected_fab"),
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ) {
@@ -270,6 +254,7 @@ fun BrowserTab(viewModel: MainViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .padding(bottom = 80.dp)
         ) {
             // Android WebView
             AndroidView(
