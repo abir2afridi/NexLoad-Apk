@@ -155,14 +155,14 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .testTag("bottom_nav_bar"),
-                                    shape = RoundedCornerShape(24.dp),
-                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                                    tonalElevation = 3.dp,
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                    tonalElevation = 6.dp,
                                     border = BorderStroke(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                                        width = 0.5.dp,
+                                        color = Color.White.copy(alpha = 0.3f)
                                     ),
-                                    shadowElevation = 8.dp
+                                    shadowElevation = 12.dp
                                 ) {
                                     Row(
                                         modifier = Modifier
