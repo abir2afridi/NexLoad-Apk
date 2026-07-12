@@ -63,7 +63,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val selectedThemeMode = MutableStateFlow("System") // "System", "Light", "Dark"
     val browserTogglePosition = MutableStateFlow("Bottom Center") // "Bottom Center", "Bottom Left", "Bottom Right"
     val downloadFolderPath = MutableStateFlow(
-        File(application.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "SmartDownloader").absolutePath
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/SmartDownloader"
     )
 
     // Biometric/PIN vault lock

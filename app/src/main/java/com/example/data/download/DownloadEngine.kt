@@ -1,6 +1,7 @@
 package com.example.data.download
 
 import android.content.Context
+import android.media.MediaScannerConnection
 import android.os.StatFs
 import android.util.Log
 import com.example.data.database.AppDatabase
@@ -234,6 +235,9 @@ object DownloadEngine {
             }
             raf.close()
 
+            // Scan the file so it appears in the gallery/file manager
+            MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), null, null)
+
             // Completion
             dao.updateDownload(
                 download.copy(
@@ -298,6 +302,9 @@ object DownloadEngine {
             partJobs.joinAll()
             
             speedJob.cancel()
+
+            // Scan the file so it appears in the gallery/file manager
+            MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), null, null)
             
             // Finished successfully
             dao.updateDownload(

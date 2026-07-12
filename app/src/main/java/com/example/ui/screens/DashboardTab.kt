@@ -34,7 +34,17 @@ import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
 import com.example.ui.components.DownloadHealthIndicators
 import com.example.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.net.Socket
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +83,71 @@ fun DashboardTab(
     }
 
     val recentDownload = completedDownloads.maxByOrNull { it.id }
+
+    // Live Clock State
+    var currentTime by remember { mutableStateOf(SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())) }
+    var currentDate by remember { mutableStateOf(SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(Date())) }
+    
+    // Connectivity State
+    var networkStatus by remember { mutableStateOf("Checking...") }
+    var pingValue by remember { mutableStateOf<Long?>(null) }
+    var connectionStrength by remember { mutableStateOf("N/A") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            val now = Date()
+            currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(now)
+            currentDate = SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(now)
+            
+            // Check Network
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network = cm.activeNetwork
+            if (network == null) {
+                networkStatus = "Offline"
+                connectionStrength = "None"
+                pingValue = null
+            } else {
+                val caps = cm.getNetworkCapabilities(network)
+                val type = when {
+                    caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> "Wi-Fi"
+                    caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "Mobile Data"
+                    else -> "Connected"
+                }
+                networkStatus = type
+                
+                // Estimate strength from capabilities
+                val speed = caps?.linkDownstreamBandwidthKbps ?: 0
+                connectionStrength = when {
+                    speed > 10000 -> "Excellent"
+                    speed > 3000 -> "Good"
+                    speed > 1000 -> "Average"
+                    else -> "Poor"
+                }
+
+                // Periodic Ping (every 5 seconds)
+                scope.launch {
+                    val start = System.currentTimeMillis()
+                    val reachable = withContext(Dispatchers.IO) {
+                        try {
+                            Socket().use { socket ->
+                                socket.connect(InetSocketAddress("8.8.8.8", 53), 2000)
+                                true
+                            }
+                        } catch (e: IOException) {
+                            false
+                        }
+                    }
+                    if (reachable) {
+                        pingValue = System.currentTimeMillis() - start
+                    } else {
+                        pingValue = null
+                        connectionStrength = "Unstable"
+                    }
+                }
+            }
+            delay(1000)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -168,6 +243,98 @@ fun DashboardTab(
                                 ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 1.5. LIVE CLOCK & CONNECTIVITY CARD
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Clock Card
+                MinimalCard(
+                    onClick = {},
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.AccessTime,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = currentTime,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+                        Text(
+                            text = currentDate,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+
+                // Connectivity Card
+                MinimalCard(
+                    onClick = {},
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = when (networkStatus) {
+                                "Wi-Fi" -> Icons.Default.Wifi
+                                "Offline" -> Icons.Default.WifiOff
+                                else -> Icons.Default.SignalCellularAlt
+                            },
+                            contentDescription = null,
+                            tint = when (connectionStrength) {
+                                "Excellent", "Good" -> Color(0xFF4CAF50)
+                                "Average" -> Color(0xFFFFC107)
+                                "Poor", "Unstable" -> Color(0xFFF44336)
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = networkStatus,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = connectionStrength,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                            if (pingValue != null) {
+                                Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)))
+                                Text(
+                                    text = "${pingValue}ms",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
