@@ -81,14 +81,13 @@ fun DashboardTab(
             .statusBarsPadding()
             .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(top = 24.dp, bottom = 100.dp)
+        contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp)
     ) {
         // 1. MINIMALIST GREETING HEADER
         item {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
