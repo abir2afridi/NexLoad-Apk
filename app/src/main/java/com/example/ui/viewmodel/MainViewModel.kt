@@ -32,6 +32,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "MainViewModel"
     private val db = AppDatabase.getDatabase(application)
     private val dao = db.downloadDao()
+    private val settingsPrefs = application.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
     // Public downloads flow
     val publicDownloads: StateFlow<List<DownloadEntity>> = dao.getPublicDownloads()
@@ -53,17 +54,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val currentWebUrl = MutableStateFlow("https://google.com")
     val isIncognito = MutableStateFlow(false)
 
-    // Settings & Security state
-    val isTrackerBlocking = MutableStateFlow(true)
-    val isHttpsOnly = MutableStateFlow(true)
-    val isWifiOnly = MutableStateFlow(false)
-    val isAmoledMode = MutableStateFlow(false)
-    val maxActiveDownloads = MutableStateFlow(3)
-    val selectedAccentColor = MutableStateFlow("Bento") // Theme color option
-    val selectedThemeMode = MutableStateFlow("System") // "System", "Light", "Dark"
-    val browserTogglePosition = MutableStateFlow("Bottom Center") // "Bottom Center", "Bottom Left", "Bottom Right"
+    // Settings & Security state (Persisted)
+    val isTrackerBlocking = MutableStateFlow(settingsPrefs.getBoolean("tracker_blocking", true))
+    val isHttpsOnly = MutableStateFlow(settingsPrefs.getBoolean("https_only", true))
+    val isWifiOnly = MutableStateFlow(settingsPrefs.getBoolean("wifi_only", false))
+    val isAmoledMode = MutableStateFlow(settingsPrefs.getBoolean("amoled_mode", false))
+    val maxActiveDownloads = MutableStateFlow(settingsPrefs.getInt("max_downloads", 3))
+    val selectedAccentColor = MutableStateFlow(settingsPrefs.getString("accent_color", "Bento") ?: "Bento")
+    val selectedThemeMode = MutableStateFlow(settingsPrefs.getString("theme_mode", "System") ?: "System")
+    val browserTogglePosition = MutableStateFlow(settingsPrefs.getString("browser_toggle_pos", "Bottom Center") ?: "Bottom Center")
     val downloadFolderPath = MutableStateFlow(
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/SmartDownloader"
+        settingsPrefs.getString("download_path", null) ?: (Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/SmartDownloader")
     )
 
     // Biometric/PIN vault lock
@@ -73,10 +74,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         // Load secure vault PIN if set from SharedPrefs
-        val prefs = application.getSharedPreferences("vault_prefs", Context.MODE_PRIVATE)
-        vaultPin.value = prefs.getString("pin", null)
-        pinHint.value = prefs.getString("hint", null)
+        val vaultPrefs = application.getSharedPreferences("vault_prefs", Context.MODE_PRIVATE)
+        vaultPin.value = vaultPrefs.getString("pin", null)
+        pinHint.value = vaultPrefs.getString("hint", null)
         
+        // Setup observers to persist settings on change
+        viewModelScope.launch {
+            isTrackerBlocking.collect { settingsPrefs.edit().putBoolean("tracker_blocking", it).apply() }
+        }
+        viewModelScope.launch {
+            isHttpsOnly.collect { settingsPrefs.edit().putBoolean("https_only", it).apply() }
+        }
+        viewModelScope.launch {
+            isWifiOnly.collect { settingsPrefs.edit().putBoolean("wifi_only", it).apply() }
+        }
+        viewModelScope.launch {
+            isAmoledMode.collect { settingsPrefs.edit().putBoolean("amoled_mode", it).apply() }
+        }
+        viewModelScope.launch {
+            maxActiveDownloads.collect { settingsPrefs.edit().putInt("max_downloads", it).apply() }
+        }
+        viewModelScope.launch {
+            selectedAccentColor.collect { settingsPrefs.edit().putString("accent_color", it).apply() }
+        }
+        viewModelScope.launch {
+            selectedThemeMode.collect { settingsPrefs.edit().putString("theme_mode", it).apply() }
+        }
+        viewModelScope.launch {
+            browserTogglePosition.collect { settingsPrefs.edit().putString("browser_toggle_pos", it).apply() }
+        }
+        viewModelScope.launch {
+            downloadFolderPath.collect { settingsPrefs.edit().putString("download_path", it).apply() }
+        }
+
         // Start WorkManager background integrity and connection checks
         scheduleIntegrityChecks()
     }

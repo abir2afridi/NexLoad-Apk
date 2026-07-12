@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.viewmodel.MainViewModel
 import java.io.File
 import android.content.Intent
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import com.example.ui.theme.*
 
 import androidx.compose.foundation.BorderStroke
 import com.example.ui.components.TabHeader
@@ -144,6 +147,23 @@ fun SettingsTab(viewModel: MainViewModel) {
             )
 
             // Accent Color Selection
+            var showColorPicker by remember { mutableStateOf(false) }
+            val accentColors = listOf(
+                "Bento" to null,
+                "Teal" to TealPrimary,
+                "Blue" to BluePrimary,
+                "Orange" to OrangePrimary,
+                "#FF1744" to Color(0xFFFF1744), // Red
+                "#D81B60" to Color(0xFFD81B60), // Pink
+                "#8E24AA" to Color(0xFF8E24AA), // Purple
+                "#3949AB" to Color(0xFF3949AB), // Indigo
+                "#00ACC1" to Color(0xFF00ACC1), // Cyan
+                "#43A047" to Color(0xFF43A047), // Green
+                "#FDD835" to Color(0xFFFDD835), // Yellow
+                "#FB8C00" to Color(0xFFFB8C00), // Orange
+                "#6D4C41" to Color(0xFF6D4C41)  // Brown
+            )
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -160,24 +180,82 @@ fun SettingsTab(viewModel: MainViewModel) {
                     }
                 }
                 
-                var expanded by remember { mutableStateOf(false) }
-                Box {
-                    Button(onClick = { expanded = true }, modifier = Modifier.testTag("accent_color_selector")) {
-                        Text(selectedAccentColor)
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    }
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        listOf("Bento", "Teal", "Blue", "Orange").forEach { color ->
-                            DropdownMenuItem(
-                                text = { Text(color) },
-                                onClick = {
-                                    viewModel.selectedAccentColor.value = color
-                                    expanded = false
-                                }
-                            )
-                        }
+                Surface(
+                    onClick = { showColorPicker = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                        Text(
+                            text = if (selectedAccentColor.startsWith("#")) "Custom" else selectedAccentColor,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
+            }
+
+            if (showColorPicker) {
+                AlertDialog(
+                    onDismissRequest = { showColorPicker = false },
+                    title = { Text("Pick Accent Color") },
+                    text = {
+                        Column {
+                            androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                                columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
+                                contentPadding = PaddingValues(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.height(240.dp)
+                            ) {
+                                items(accentColors.size) { index ->
+                                    val (name, color) = accentColors[index]
+                                    val isSelected = selectedAccentColor == name
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .background(color ?: BentoPrimary)
+                                            .clickable {
+                                                viewModel.selectedAccentColor.value = name
+                                                showColorPicker = false
+                                            }
+                                            .border(
+                                                width = 3.dp,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                                                shape = CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isSelected) {
+                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                        }
+                                        if (name == "Bento") {
+                                            Text("B", color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showColorPicker = false }) {
+                            Text("Close")
+                        }
+                    }
+                )
             }
 
             // Browser Toggle Position

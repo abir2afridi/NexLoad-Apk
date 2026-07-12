@@ -64,7 +64,7 @@ private val BentoDarkColorScheme = darkColorScheme(
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     isAmoled: Boolean = false,
-    accentColor: String = "Bento", // "Bento", "Teal", "Blue", "Orange"
+    accentColor: String = "Bento", // "Bento", "Teal", "Blue", "Orange" or Hex like "#FF0000"
     dynamicColor: Boolean = false, // Set to false to prioritize our gorgeous branding
     content: @Composable () -> Unit,
 ) {
@@ -81,7 +81,14 @@ fun MyApplicationTheme(
             val primaryColor = when (accentColor) {
                 "Blue" -> BlueAccent
                 "Orange" -> OrangeAccent
-                else -> TealAccent
+                "Teal" -> TealAccent
+                else -> {
+                    try {
+                        Color(android.graphics.Color.parseColor(accentColor))
+                    } catch (e: Exception) {
+                        TealAccent
+                    }
+                }
             }
             darkColorScheme(
                 primary = primaryColor,
@@ -96,7 +103,14 @@ fun MyApplicationTheme(
             val primaryColor = when (accentColor) {
                 "Blue" -> BluePrimary
                 "Orange" -> OrangePrimary
-                else -> TealPrimary
+                "Teal" -> TealPrimary
+                else -> {
+                    try {
+                        Color(android.graphics.Color.parseColor(accentColor))
+                    } catch (e: Exception) {
+                        TealPrimary
+                    }
+                }
             }
             lightColorScheme(
                 primary = primaryColor,
