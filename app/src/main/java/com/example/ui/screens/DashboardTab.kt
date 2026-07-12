@@ -111,34 +111,64 @@ fun DashboardTab(
                     )
                 }
 
-                // Super Clean Minimalist Engine Tag
-                Surface(
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-                    shape = RoundedCornerShape(12.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    // Theme toggle icon
+                    val themeIcon = when (viewModel.selectedThemeMode.value) {
+                        "Light" -> Icons.Default.LightMode
+                        "Dark" -> Icons.Default.DarkMode
+                        else -> Icons.Default.BrightnessAuto
+                    }
+                    Surface(
+                        onClick = {
+                            val modes = listOf("System", "Light", "Dark")
+                            val next = (modes.indexOf(viewModel.selectedThemeMode.value) + 1) % modes.size
+                            viewModel.selectedThemeMode.value = modes[next]
+                        },
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (activeTasksCount > 0) MaterialTheme.colorScheme.primary 
-                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                )
-                        )
-                        Text(
-                            text = if (activeTasksCount > 0) "ACTIVE" else "READY",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 10.sp,
-                                letterSpacing = 0.5.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Box(modifier = Modifier.padding(8.dp)) {
+                            Icon(
+                                imageVector = themeIcon,
+                                contentDescription = "Toggle theme",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Super Clean Minimalist Engine Tag
+                    Surface(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (activeTasksCount > 0) MaterialTheme.colorScheme.primary 
+                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                    )
+                            )
+                            Text(
+                                text = if (activeTasksCount > 0) "ACTIVE" else "READY",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 10.sp,
+                                    letterSpacing = 0.5.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }
