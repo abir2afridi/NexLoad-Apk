@@ -51,18 +51,46 @@ fun DownloadsTab(viewModel: MainViewModel) {
                     category = "Vortex Pro",
                     title = "Downloads",
                     actionContent = {
-                        IconButton(
-                            onClick = {
-                                viewModel.runImmediateIntegrityCheck()
-                                Toast.makeText(context, "Running download integrity & connectivity checks...", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.HealthAndSafety,
-                                contentDescription = "Verify All Downloads",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Theme Toggle
+                            val themeIcon = when (viewModel.selectedThemeMode.collectAsState().value) {
+                                "Light" -> Icons.Default.LightMode
+                                "Dark" -> Icons.Default.DarkMode
+                                else -> Icons.Default.BrightnessAuto
+                            }
+                            Surface(
+                                onClick = {
+                                    val modes = listOf("System", "Light", "Dark")
+                                    val current = viewModel.selectedThemeMode.value
+                                    val next = (modes.indexOf(current) + 1) % modes.size
+                                    viewModel.selectedThemeMode.value = modes[next]
+                                },
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
+                                shape = CircleShape
+                            ) {
+                                Box(modifier = Modifier.padding(8.dp)) {
+                                    Icon(
+                                        imageVector = themeIcon,
+                                        contentDescription = "Toggle theme",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    viewModel.runImmediateIntegrityCheck()
+                                    Toast.makeText(context, "Running download integrity & connectivity checks...", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.HealthAndSafety,
+                                    contentDescription = "Verify All Downloads",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
                         }
                     }
                 )
