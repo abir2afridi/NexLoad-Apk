@@ -576,19 +576,24 @@ fun DashboardTab(
     if (showPasteLinkDialog) {
         AlertDialog(
             onDismissRequest = { showPasteLinkDialog = false },
-            title = { Text("Stream Link Downloader", fontWeight = FontWeight.Bold) },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.CloudDownload,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            },
+            title = {
+                Text("New Download", fontWeight = FontWeight.SemiBold)
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "Paste any raw media or video file stream URL below.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
                     OutlinedTextField(
                         value = pastedUrl,
                         onValueChange = { pastedUrl = it },
-                        label = { Text("Media Stream Link") },
+                        label = { Text("URL") },
+                        placeholder = { Text("Paste media link...") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -597,7 +602,8 @@ fun DashboardTab(
                     OutlinedTextField(
                         value = pastedTitle,
                         onValueChange = { pastedTitle = it },
-                        label = { Text("Custom Title (Optional)") },
+                        label = { Text("Title") },
+                        placeholder = { Text("Optional") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -611,7 +617,7 @@ fun DashboardTab(
                         if (url.isNotBlank()) {
                             val title = if (pastedTitle.isBlank()) "Stream Socket Link" else pastedTitle
                             viewModel.addDownload(url, title)
-                            Toast.makeText(context, "Download initialized!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show()
                             pastedUrl = ""
                             pastedTitle = ""
                             showPasteLinkDialog = false
@@ -621,7 +627,7 @@ fun DashboardTab(
                     },
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Initialize Download")
+                    Text("Download")
                 }
             },
             dismissButton = {

@@ -41,10 +41,11 @@ object DownloadEngine {
                 val download = dao.getDownloadById(downloadId) ?: return@launch
                 if (download.status == "COMPLETED") return@launch
 
-                dao.updateDownload(download.copy(status = "DOWNLOADING", errorMessage = null))
+                val downloadingEntity = download.copy(status = "DOWNLOADING", errorMessage = null)
+                dao.updateDownload(downloadingEntity)
                 
                 // Perform download
-                executeDownload(context, download)
+                executeDownload(context, downloadingEntity)
             } catch (e: CancellationException) {
                 Log.d(TAG, "Download $downloadId was cancelled/paused")
             } catch (e: Exception) {
@@ -79,7 +80,7 @@ object DownloadEngine {
             val db = AppDatabase.getDatabase(context)
             val dao = db.downloadDao()
             val download = dao.getDownloadById(downloadId)
-            if (download != null && download.status == "DOWNLOADING") {
+            if (download != null && (download.status == "DOWNLOADING" || download.status == "QUEUED")) {
                 dao.updateDownload(download.copy(status = "PAUSED", speed = 0))
             }
         }
@@ -151,15 +152,16 @@ object DownloadEngine {
             }
         }
 
-        dao.updateDownload(download.copy(totalBytes = totalLength))
+        val updatedDownload = download.copy(totalBytes = totalLength)
+        dao.updateDownload(updatedDownload)
 
         // 3. Multi-thread or Single-thread download
-        if (acceptRanges && totalLength > 2 * 1024 * 1024 && download.threads > 1) {
+        if (acceptRanges && totalLength > 2 * 1024 * 1024 && updatedDownload.threads > 1) {
             // Multi-thread Download
-            executeMultiThreadDownload(context, download, totalLength)
+            executeMultiThreadDownload(context, updatedDownload, totalLength)
         } else {
             // Single-thread Download
-            executeSingleThreadDownload(context, download, totalLength)
+            executeSingleThreadDownload(context, updatedDownload, totalLength)
         }
     }
 
@@ -211,19 +213,23 @@ object DownloadEngine {
                 speedBytes += bytesRead
 
                 val now = System.currentTimeMillis()
-                if (now - lastUpdate >= 1000) {
+                if (now - lastUpdate >= 500) {
                     val elapsed = (now - lastUpdate) / 1000.0
                     val currentSpeed = (speedBytes / elapsed).toLong()
                     speedBytes = 0L
                     lastUpdate = now
 
-                    dao.updateDownload(
-                        download.copy(
-                            status = "DOWNLOADING",
-                            downloadedBytes = downloadedBytes,
-                            speed = currentSpeed
+                    val latest = dao.getDownloadById(download.id)
+                    if (latest != null && (latest.status == "DOWNLOADING" || latest.status == "QUEUED")) {
+                        dao.updateDownload(
+                            latest.copy(
+                                status = "DOWNLOADING",
+                                totalBytes = totalLength,
+                                downloadedBytes = downloadedBytes,
+                                speed = currentSpeed
+                            )
                         )
-                    )
+                    }
                 }
             }
             raf.close()
@@ -232,6 +238,7 @@ object DownloadEngine {
             dao.updateDownload(
                 download.copy(
                     status = "COMPLETED",
+                    totalBytes = totalLength,
                     downloadedBytes = totalLength.coerceAtLeast(downloadedBytes),
                     speed = 0
                 )
@@ -260,15 +267,16 @@ object DownloadEngine {
         val speedTracker = AtomicLong(0L)
         val speedJob = launch {
             while (isActive) {
-                delay(1000)
-                val currentSpeed = speedTracker.getAndSet(0L)
+                delay(500)
+                val currentSpeed = (speedTracker.getAndSet(0L) * 2) // Approximate for 500ms
                 val currentProgress = downloadedAccumulator.get()
                 
                 // Get updated copy from db
                 val currentDownload = dao.getDownloadById(download.id)
-                if (currentDownload != null && currentDownload.status == "DOWNLOADING") {
+                if (currentDownload != null && (currentDownload.status == "DOWNLOADING" || currentDownload.status == "QUEUED")) {
                     dao.updateDownload(
                         currentDownload.copy(
+                            status = "DOWNLOADING",
                             downloadedBytes = currentProgress,
                             speed = currentSpeed
                         )
@@ -295,6 +303,7 @@ object DownloadEngine {
             dao.updateDownload(
                 download.copy(
                     status = "COMPLETED",
+                    totalBytes = totalLength,
                     downloadedBytes = totalLength,
                     speed = 0
                 )
