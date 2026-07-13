@@ -3,6 +3,7 @@ package com.example.data.download
 import android.content.Context
 import android.media.MediaScannerConnection
 import android.os.StatFs
+import android.webkit.MimeTypeMap
 import android.util.Log
 import com.example.data.database.AppDatabase
 import com.example.data.database.DownloadEntity
@@ -115,17 +116,19 @@ object DownloadEngine {
         // 1. Initial HEAD or quick GET request to inspect the headers
         val checkRequest = Request.Builder()
             .url(download.url)
-            .header("Range", "bytes=0-0") // Safe way to see if range is supported
+            .header("Range", "bytes=0-0")
             .build()
 
         var totalLength = download.totalBytes
         var acceptRanges = false
+        var contentType: String? = null
 
         try {
             client.newCall(checkRequest).execute().use { response ->
                 if (response.isSuccessful) {
                     val contentRange = response.header("Content-Range")
                     val fullLenHeader = response.header("Content-Length")
+                    contentType = response.header("Content-Type")
                     
                     acceptRanges = response.code == 206 || contentRange != null
                     
@@ -143,17 +146,43 @@ object DownloadEngine {
             Log.w(TAG, "Failed range check request, will proceed with single-thread fallback", e)
         }
 
+        // Update filename/extension based on Content-Type
+        val resolvedContentType = contentType
+        var resolvedDownload = download
+        if (!resolvedContentType.isNullOrBlank()) {
+            val mimeExt = MimeTypeMap.getSingleton().getExtensionFromMimeType(resolvedContentType)
+            val category = MediaUtils.getCategoryFromMimeType(resolvedContentType)
+            val resolvedExt = if (!mimeExt.isNullOrBlank()) mimeExt else "mp4"
+            
+            if (resolvedExt != download.filename.substringAfterLast('.', "mp4")) {
+                val baseName = download.filename.substringBeforeLast('.', download.filename)
+                val correctedName = "$baseName.$resolvedExt"
+                val correctedPath = File(download.filepath).parent?.let { File(it, correctedName).absolutePath } ?: download.filepath
+                resolvedDownload = download.copy(
+                    filename = correctedName,
+                    filepath = correctedPath,
+                    mimeType = resolvedContentType,
+                    category = category
+                )
+                dao.updateDownload(resolvedDownload)
+            } else {
+                // Update mimeType and category even if extension matches
+                resolvedDownload = download.copy(mimeType = resolvedContentType, category = category)
+                dao.updateDownload(resolvedDownload)
+            }
+        }
+
         // 2. Storage Check
         if (totalLength > 0) {
             val stat = StatFs(file.parentFile?.absolutePath ?: context.filesDir.absolutePath)
             val bytesAvailable = stat.availableBlocksLong * stat.blockSizeLong
             if (bytesAvailable < totalLength) {
-                dao.updateDownload(download.copy(status = "FAILED", errorMessage = "Insufficient storage space"))
+                dao.updateDownload(resolvedDownload.copy(status = "FAILED", errorMessage = "Insufficient storage space"))
                 return@withContext
             }
         }
 
-        val updatedDownload = download.copy(totalBytes = totalLength)
+        val updatedDownload = resolvedDownload.copy(totalBytes = totalLength)
         dao.updateDownload(updatedDownload)
 
         // 3. Multi-thread or Single-thread download

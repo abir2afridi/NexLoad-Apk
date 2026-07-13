@@ -102,6 +102,12 @@ fun BrowserTab(viewModel: MainViewModel) {
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(20.dp))
                         }
+                        IconButton(
+                            onClick = { webViewInstance?.loadUrl("https://google.com") },
+                            modifier = Modifier.size(34.dp).testTag("browser_home")
+                        ) {
+                            Icon(Icons.Default.Home, contentDescription = "Home", modifier = Modifier.size(20.dp))
+                        }
 
                         // Address Bar
                         TextField(
@@ -129,23 +135,6 @@ fun BrowserTab(viewModel: MainViewModel) {
                                     modifier = Modifier.size(16.dp)
                                 )
                             },
-                            trailingIcon = {
-                                val isBookmarked = viewModel.isUrlBookmarked(currentUrl)
-                                IconButton(
-                                    onClick = {
-                                        viewModel.toggleBookmark(currentUrl, webViewInstance?.title ?: "Web Page")
-                                        Toast.makeText(context, if (isBookmarked) "Bookmark removed" else "Page bookmarked", Toast.LENGTH_SHORT).show()
-                                    },
-                                    modifier = Modifier.size(32.dp).testTag("bookmark_toggle_btn")
-                                ) {
-                                    Icon(
-                                        imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                                        contentDescription = "Bookmark",
-                                        tint = if (isBookmarked) MaterialTheme.colorScheme.primary else Color.Gray,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            },
                             textStyle = MaterialTheme.typography.bodyMedium,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(
@@ -165,7 +154,6 @@ fun BrowserTab(viewModel: MainViewModel) {
                             )
                         )
 
-                        // Privacy toggles
                         IconButton(
                             onClick = {
                                 val newState = !isIncognito
@@ -189,26 +177,65 @@ fun BrowserTab(viewModel: MainViewModel) {
                             )
                         }
 
-                        IconButton(
-                            onClick = {
-                                viewModel.isTrackerBlocking.value = !isTrackerBlocking
-                                Toast.makeText(context, "Tracker Blocker: " + if (!isTrackerBlocking) "ENABLED" else "DISABLED", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isTrackerBlocking) Icons.Filled.Shield else Icons.Outlined.Shield,
-                                contentDescription = "Tracker blocker",
-                                tint = if (isTrackerBlocking) Color(0xFF4CAF50) else Color.Gray,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { showBookmarksSheet = true },
-                            modifier = Modifier.size(34.dp).testTag("bookmarks_list_btn")
-                        ) {
-                            Icon(Icons.Default.Bookmarks, contentDescription = "Bookmarks", modifier = Modifier.size(20.dp))
+                        // 3-dot overflow menu
+                        var showOverflow by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(
+                                onClick = { showOverflow = true },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "More",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showOverflow,
+                                onDismissRequest = { showOverflow = false }
+                            ) {
+                                val isBookmarked = viewModel.isUrlBookmarked(currentUrl)
+                                DropdownMenuItem(
+                                    text = { Text(if (isBookmarked) "Remove Bookmark" else "Bookmark Page") },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                                            contentDescription = null,
+                                            tint = if (isBookmarked) MaterialTheme.colorScheme.primary else Color.Gray
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.toggleBookmark(currentUrl, webViewInstance?.title ?: "Web Page")
+                                        Toast.makeText(context, if (isBookmarked) "Bookmark removed" else "Page bookmarked", Toast.LENGTH_SHORT).show()
+                                        showOverflow = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (isTrackerBlocking) "Disable Tracker Blocker" else "Enable Tracker Blocker") },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = if (isTrackerBlocking) Icons.Filled.Shield else Icons.Outlined.Shield,
+                                            contentDescription = null,
+                                            tint = if (isTrackerBlocking) Color(0xFF4CAF50) else Color.Gray
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.isTrackerBlocking.value = !isTrackerBlocking
+                                        Toast.makeText(context, "Tracker Blocker: " + if (!isTrackerBlocking) "ENABLED" else "DISABLED", Toast.LENGTH_SHORT).show()
+                                        showOverflow = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Bookmarks List") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Bookmarks, contentDescription = null, tint = Color.Gray)
+                                    },
+                                    onClick = {
+                                        showBookmarksSheet = true
+                                        showOverflow = false
+                                    }
+                                )
+                            }
                         }
                     }
 
@@ -300,30 +327,60 @@ fun BrowserTab(viewModel: MainViewModel) {
                                         document.head.appendChild(style);
                                         
                                         function scan() {
+                                            var urls = [];
+                                            // 1. Video elements
                                             var videos = document.getElementsByTagName('video');
                                             for (var i = 0; i < videos.length; i++) {
-                                                var src = videos[i].src || '';
-                                                if (src && !src.startsWith('blob:') && !src.startsWith('data:')) {
-                                                    window.MediaScanner.postMedia(src, document.title || 'Video');
-                                                }
+                                                var src = videos[i].src || videos[i].getAttribute('data-src') || videos[i].getAttribute('data-url') || '';
+                                                if (src && !src.startsWith('blob:') && !src.startsWith('data:')) urls.push({url: src, title: document.title || 'Video'});
                                                 var sources = videos[i].getElementsByTagName('source');
                                                 for (var j = 0; j < sources.length; j++) {
-                                                    var sSrc = sources[j].src;
-                                                    if (sSrc && !sSrc.startsWith('blob:') && !sSrc.startsWith('data:')) {
-                                                        window.MediaScanner.postMedia(sSrc, document.title || 'Video');
-                                                    }
+                                                    var s = sources[j].src || sources[j].getAttribute('data-src') || '';
+                                                    if (s && !s.startsWith('blob:') && !s.startsWith('data:')) urls.push({url: s, title: document.title || 'Video'});
                                                 }
                                             }
+                                            // 2. Open Graph & meta tags
+                                            var metas = document.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player"]');
+                                            for (var i = 0; i < metas.length; i++) {
+                                                var c = metas[i].content;
+                                                if (c && c.indexOf('http') === 0) urls.push({url: c, title: document.title || 'Video'});
+                                            }
+                                            // 3. Iframe players
+                                            var iframes = document.querySelectorAll('iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="tiktok"], iframe[src*="instagram"]');
+                                            for (var i = 0; i < iframes.length; i++) {
+                                                var s = iframes[i].src;
+                                                if (s) urls.push({url: s, title: document.title || 'Embed'});
+                                            }
+                                            // 4. Anchor links with media extensions
                                             var links = document.getElementsByTagName('a');
                                             for (var i = 0; i < links.length; i++) {
                                                 var href = links[i].href;
-                                                if (href && (href.indexOf('.mp4') !== -1 || href.indexOf('.mp3') !== -1 || href.indexOf('.m4a') !== -1)) {
-                                                    window.MediaScanner.postMedia(href, links[i].innerText || document.title || 'Media File');
+                                                if (href && (href.indexOf('.mp4') !== -1 || href.indexOf('.mp3') !== -1 || href.indexOf('.m4a') !== -1 || href.indexOf('.webm') !== -1 || href.indexOf('.mov') !== -1 || href.indexOf('.avi') !== -1) && href.indexOf('blob:') !== 0) {
+                                                    urls.push({url: href, title: links[i].innerText || document.title || 'Media File'});
                                                 }
+                                            }
+                                            // 5. Images (for Instagram-style galleries)
+                                            var imgs = document.querySelectorAll('img[src*="media"], img[src*="cdn"], img[src*="video"]');
+                                            for (var i = 0; i < imgs.length; i++) {
+                                                var s = imgs[i].src;
+                                                if (s && (s.indexOf('.jpg') !== -1 || s.indexOf('.png') || s.indexOf('.webp') !== -1)) urls.push({url: s, title: document.title || 'Image'});
+                                            }
+                                            // 6. Article body media embeds
+                                            var embeds = document.querySelectorAll('[data-media-url], [data-video-url], [data-video-src], [data-mp4]');
+                                            for (var i = 0; i < embeds.length; i++) {
+                                                var attr = embeds[i].getAttribute('data-media-url') || embeds[i].getAttribute('data-video-url') || embeds[i].getAttribute('data-video-src') || embeds[i].getAttribute('data-mp4') || '';
+                                                if (attr && attr.indexOf('http') === 0) urls.push({url: attr, title: document.title || 'Media'});
+                                            }
+                                            // Post unique URLs
+                                            var seen = {};
+                                            for (var i = 0; i < urls.length; i++) {
+                                                var key = urls[i].url;
+                                                if (!seen[key]) { seen[key] = true; window.MediaScanner.postMedia(urls[i].url, urls[i].title); }
                                             }
                                         }
                                         scan();
-                                        setInterval(scan, 2000);
+                                        setTimeout(function() { scan(); }, 1500);
+                                        setTimeout(function() { scan(); }, 4000);
                                     })();
                                 """.trimIndent(), null)
                             }
@@ -338,6 +395,14 @@ fun BrowserTab(viewModel: MainViewModel) {
                                     if (blockedKeywords.any { urlStr.contains(it, ignoreCase = true) }) {
                                         return WebResourceResponse("text/plain", "UTF-8", null)
                                     }
+                                }
+                                // Detect media URLs being loaded as network requests
+                                if (urlStr.contains(".mp4") || urlStr.contains(".m3u8") || urlStr.contains(".ts?") || 
+                                    urlStr.contains(".webm") || urlStr.contains(".mov?") || urlStr.contains(".avi?")) {
+                                    val title = request?.requestHeaders?.get("Referer")?.let { 
+                                        it.substringAfterLast("/").substringBefore("?").take(30) 
+                                    } ?: "Stream"
+                                    viewModel.addDetectedMedia(urlStr, title)
                                 }
                                 return super.shouldInterceptRequest(view, request)
                             }
