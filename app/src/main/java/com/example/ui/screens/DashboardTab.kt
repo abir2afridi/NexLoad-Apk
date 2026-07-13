@@ -79,6 +79,16 @@ fun DashboardTab(
     val totalSpeed = activeDownloads.sumOf { it.speed }
     val activeTasksCount = activeDownloads.size
 
+    val totalRemainingTime = remember(activeDownloads, totalSpeed) {
+        if (activeDownloads.isNotEmpty() && totalSpeed > 0) {
+            val totalBytes = activeDownloads.sumOf { it.totalBytes }
+            val downloadedBytes = activeDownloads.sumOf { it.downloadedBytes }
+            if (totalBytes > 0) {
+                MediaUtils.getEstimatedRemainingTime(totalBytes, downloadedBytes, totalSpeed)
+            } else null
+        } else null
+    }
+
     val avgProgress = if (activeDownloads.isNotEmpty()) {
         val totalBytes = activeDownloads.sumOf { it.totalBytes }
         val downloadedBytes = activeDownloads.sumOf { it.downloadedBytes }
@@ -491,7 +501,9 @@ fun DashboardTab(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = if (activeTasksCount > 0) {
-                                    "Downloading • ${MediaUtils.formatSpeed(totalSpeed)}"
+                                    val speedText = MediaUtils.formatSpeed(totalSpeed)
+                                    val timeText = if (totalRemainingTime != null) " • $totalRemainingTime" else ""
+                                    "Downloading • $speedText$timeText"
                                 } else {
                                     "No ongoing streams"
                                 },

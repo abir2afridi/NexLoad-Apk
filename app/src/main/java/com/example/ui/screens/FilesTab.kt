@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,12 +16,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
@@ -57,66 +60,94 @@ fun FilesTab(viewModel: MainViewModel) {
 
     Scaffold(
         topBar = {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
-                TabHeader(
-                    category = "Vortex Pro",
-                    title = "File Library",
-                    actionContent = {
-                        // Theme Toggle
-                        val themeIcon = when (viewModel.selectedThemeMode.collectAsState().value) {
-                            "Light" -> Icons.Default.LightMode
-                            "Dark" -> Icons.Default.DarkMode
-                            else -> Icons.Default.BrightnessAuto
-                        }
-                        Surface(
-                            onClick = {
-                                val modes = listOf("System", "Light", "Dark")
-                                val current = viewModel.selectedThemeMode.value
-                                val next = (modes.indexOf(current) + 1) % modes.size
-                                viewModel.selectedThemeMode.value = modes[next]
-                            },
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-                            shape = CircleShape
-                        ) {
-                            Box(modifier = Modifier.padding(8.dp)) {
-                                Icon(
-                                    imageVector = themeIcon,
-                                    contentDescription = "Toggle theme",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "LIBRARY",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 2.sp,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            )
+                        )
+                        Text(
+                            text = "File Library",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = (-1).sp
+                            )
+                        )
+                    }
+
+                    // Theme Toggle
+                    val themeIcon = when (viewModel.selectedThemeMode.collectAsState().value) {
+                        "Light" -> Icons.Default.LightMode
+                        "Dark" -> Icons.Default.DarkMode
+                        else -> Icons.Default.BrightnessAuto
+                    }
+                    Surface(
+                        onClick = {
+                            val modes = listOf("System", "Light", "Dark")
+                            val current = viewModel.selectedThemeMode.value
+                            val next = (modes.indexOf(current) + 1) % modes.size
+                            viewModel.selectedThemeMode.value = modes[next]
+                        },
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = CircleShape
+                    ) {
+                        Box(modifier = Modifier.padding(10.dp)) {
+                            Icon(
+                                imageVector = themeIcon,
+                                contentDescription = "Toggle theme",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
-                )
+                }
             }
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
+                .padding(top = innerPadding.calculateTopPadding())
+                .padding(horizontal = 24.dp)
         ) {
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                    .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 categories.forEach { cat ->
                     val isSelected = selectedCategoryFilter == cat
-                    FilterChip(
-                        selected = isSelected,
+                    Surface(
                         onClick = { selectedCategoryFilter = cat },
-                        label = { Text(cat) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                         modifier = Modifier.testTag("filter_chip_$cat")
-                    )
+                    ) {
+                        Text(
+                            text = cat,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -130,27 +161,20 @@ fun FilesTab(viewModel: MainViewModel) {
                         verticalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Folder,
+                            imageVector = Icons.Default.FolderOpen,
                             contentDescription = null,
-                            modifier = Modifier.size(72.dp),
-                            tint = Color.LightGray
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("No completed downloads", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = "Downloaded videos and audios in this category will display here.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray,
-                            modifier = Modifier.padding(horizontal = 32.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
+                        Text("No items found", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                     }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 100.dp)
+                    contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
                 ) {
                     items(filteredFiles, key = { it.id }) { item ->
                         val file = File(item.filepath)
@@ -171,47 +195,55 @@ fun FilesTab(viewModel: MainViewModel) {
                                     }
                                 }
                                 .testTag("file_item_${item.id}"),
-                            shape = RoundedCornerShape(24.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val icon = when (item.category) {
-                                    "Video" -> Icons.Default.Movie
-                                    "Audio" -> Icons.Default.Audiotrack
-                                    "Images" -> Icons.Default.Image
-                                    else -> Icons.Default.Description
+                                val (icon, tint) = when (item.category) {
+                                    "Video" -> Icons.Default.Movie to Color(0xFFE91E63)
+                                    "Audio" -> Icons.Default.Audiotrack to Color(0xFF2196F3)
+                                    "Images" -> Icons.Default.Image to Color(0xFF4CAF50)
+                                    else -> Icons.Default.Description to Color(0xFF9C27B0)
                                 }
-                                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(tint.copy(alpha = 0.08f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(icon, contentDescription = null, tint = tint.copy(alpha = 0.7f), modifier = Modifier.size(24.dp))
+                                }
+                                
                                 Spacer(modifier = Modifier.width(16.dp))
                                 
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = item.title,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "${item.filename}  •  ${MediaUtils.formatBytes(item.totalBytes)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.Gray,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        text = "${MediaUtils.formatBytes(item.totalBytes)} • ${item.mimeType.split("/").last().uppercase()}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    DownloadHealthIndicators(integrityStatus = item.integrityStatus, connectionHealth = item.connectionHealth)
+                                    
                                     if (!fileExists) {
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = "⚠️ File missing on disk",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color.Red,
+                                            text = "⚠️ File missing",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.error,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
@@ -219,16 +251,16 @@ fun FilesTab(viewModel: MainViewModel) {
 
                                 var showMenu by remember { mutableStateOf(false) }
                                 Box {
-                                    IconButton(onClick = { showMenu = true }) {
-                                        Icon(Icons.Default.MoreVert, contentDescription = "Actions")
+                                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
+                                        Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     DropdownMenu(
                                         expanded = showMenu,
                                         onDismissRequest = { showMenu = false }
                                     ) {
                                         DropdownMenuItem(
-                                            text = { Text("View Details") },
-                                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) },
+                                            text = { Text("Details") },
+                                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                             onClick = {
                                                 selectedMetadataItem = item
                                                 showMenu = false
@@ -236,16 +268,16 @@ fun FilesTab(viewModel: MainViewModel) {
                                         )
                                         if (fileExists) {
                                             DropdownMenuItem(
-                                                text = { Text("Share File") },
-                                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+                                                text = { Text("Share") },
+                                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                                 onClick = {
                                                     shareFile(context, file, item.mimeType)
                                                     showMenu = false
                                                 }
                                             )
                                             DropdownMenuItem(
-                                                text = { Text("Move to Private Vault") },
-                                                leadingIcon = { Icon(Icons.Default.EnhancedEncryption, contentDescription = null) },
+                                                text = { Text("Private Vault") },
+                                                leadingIcon = { Icon(Icons.Default.EnhancedEncryption, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                                 onClick = {
                                                     scope.launch {
                                                         val dbInst = com.example.data.database.AppDatabase.getDatabase(context)
@@ -270,9 +302,10 @@ fun FilesTab(viewModel: MainViewModel) {
                                                 }
                                             )
                                         }
+                                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                         DropdownMenuItem(
-                                            text = { Text("Delete", color = Color.Red) },
-                                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red) },
+                                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) },
                                             onClick = {
                                                 viewModel.deleteDownload(item.id)
                                                 Toast.makeText(context, "File deleted", Toast.LENGTH_SHORT).show()
@@ -286,6 +319,7 @@ fun FilesTab(viewModel: MainViewModel) {
                     }
                 }
             }
+
         }
 
         activePlayingFilePath?.let { path ->
