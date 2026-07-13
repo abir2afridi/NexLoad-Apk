@@ -65,7 +65,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val browserTogglePosition = MutableStateFlow(settingsPrefs.getString("browser_toggle_pos", "Bottom Center") ?: "Bottom Center")
     val isForceDarkWeb = MutableStateFlow(settingsPrefs.getBoolean("force_dark_web", false))
     val downloadFolderPath = MutableStateFlow(
-        settingsPrefs.getString("download_path", null) ?: (Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/SmartDownloader")
+        settingsPrefs.getString("download_path", null) ?: (application.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.absolutePath ?: (application.filesDir.absolutePath + "/NexLoad"))
     )
 
     // Biometric/PIN vault lock

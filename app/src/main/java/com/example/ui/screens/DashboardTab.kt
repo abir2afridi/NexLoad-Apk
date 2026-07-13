@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Environment
 import android.os.StatFs
 import android.widget.Toast
@@ -10,6 +12,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +31,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -35,22 +39,38 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
+import com.example.data.download.TikTokExtractor
 import com.example.ui.components.DownloadHealthIndicators
 import com.example.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
-import coil.compose.AsyncImage
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.*
+
+// TikTok Metadata structure
+data class TikTokVideoInfo(
+    val id: String,
+    val title: String,
+    val author: String,
+    val thumbnail: String,
+    val duration: String,
+    val qualities: List<TikTokQuality>
+)
+
+data class TikTokQuality(
+    val label: String,
+    val size: String,
+    val format: String,
+    val url: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +83,8 @@ fun DashboardTab(
     val downloads by viewModel.publicDownloads.collectAsState()
     val isIncognito by viewModel.isIncognito.collectAsState()
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
+
+    var linkText by remember { mutableStateOf("") }
 
     val greeting = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -374,11 +396,7 @@ fun DashboardTab(
         // 2. PRIMARY STATUS BLOCK (MINIMAL & INTUITIVE CARD)
         item {
             MinimalCard(
-                onClick = { 
-                    if (activeTasksCount > 0) {
-                        onNavigateToTab("Downloads")
-                    }
-                },
+                onClick = if (activeTasksCount > 0) ({ onNavigateToTab("Downloads") }) else null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("bento_active_tasks_card")
@@ -455,85 +473,256 @@ fun DashboardTab(
                             )
                         }
                     } else {
-                        // Link Input Field Inside Card
-                        var linkText by remember { mutableStateOf("") }
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // Favicon Detection
-                                val faviconUrl = remember(linkText) {
-                                    if (linkText.startsWith("http")) {
-                                        try {
-                                            val domain = android.net.Uri.parse(linkText).host
-                                            if (!domain.isNullOrBlank()) {
-                                                "https://www.google.com/s2/favicons?sz=64&domain=$domain"
-                                            } else null
-                                        } catch (e: Exception) { null }
-                                    } else null
-                                }
+                        val isTikTokUrl = linkText.contains("tiktok.com") || linkText.contains("vt.tiktok.com")
+                        var isFetchingTikTok by remember { mutableStateOf(false) }
+                        var tiktokError by remember { mutableStateOf<String?>(null) }
+                        var tiktokInfo by remember { mutableStateOf<TikTokVideoInfo?>(null) }
 
-                                if (faviconUrl != null) {
-                                    AsyncImage(
-                                        model = faviconUrl,
-                                        contentDescription = "Favicon",
-                                        modifier = Modifier
-                                            .size(20.dp)
-                                            .clip(RoundedCornerShape(4.dp)),
-                                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Link,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                        LaunchedEffect(linkText) {
+                            tiktokInfo = null
+                            tiktokError = null
+                            if (isTikTokUrl) {
+                                isFetchingTikTok = true
+                                delay(600)
+                                val result = withContext(Dispatchers.IO) {
+                                    TikTokExtractor.extract(linkText)
                                 }
-                                BasicTextField(
-                                    value = linkText,
-                                    onValueChange = { linkText = it },
-                                    modifier = Modifier.weight(1f),
-                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    ),
-                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                    singleLine = true,
-                                    decorationBox = { innerTextField ->
-                                        if (linkText.isEmpty()) {
-                                            Text(
-                                                text = "Paste link here...",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                            )
+                                result.fold(
+                                    onSuccess = { data ->
+                                        val qualities = mutableListOf<TikTokQuality>()
+                                        data.videoUrlNoWatermark?.let { url ->
+                                            qualities.add(TikTokQuality("HD (No Watermark)", "—", "MP4", url))
                                         }
-                                        innerTextField()
+                                        data.videoUrl?.let { url ->
+                                            qualities.add(TikTokQuality("With Watermark", "—", "MP4", url))
+                                        }
+                                        data.audioUrl?.let { url ->
+                                            qualities.add(TikTokQuality("Audio Only", "—", "MP3", url))
+                                        }
+                                        tiktokInfo = TikTokVideoInfo(
+                                            id = data.id,
+                                            title = data.title.ifBlank { "TikTok Video" },
+                                            author = data.author.ifBlank { data.authorId },
+                                            thumbnail = data.thumbnail,
+                                            duration = formatDuration(data.duration),
+                                            qualities = qualities
+                                        )
+                                    },
+                                    onFailure = { error ->
+                                        tiktokError = error.message ?: "Failed to analyze TikTok link"
                                     }
                                 )
-                                if (linkText.isNotEmpty()) {
+                                isFetchingTikTok = false
+                            }
+                        }
+
+                        if (isTikTokUrl) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                if (isFetchingTikTok) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text("Analyzing TikTok link...", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                } else if (tiktokError != null) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = tiktokError ?: "Unknown error",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                } else if (tiktokInfo != null) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        AsyncImage(
+                                            model = tiktokInfo!!.thumbnail.ifEmpty { "https://www.google.com/s2/favicons?sz=64&domain=tiktok.com" },
+                                            contentDescription = null,
+                                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = tiktokInfo!!.title,
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "${tiktokInfo!!.author} • ${tiktokInfo!!.duration}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = "Choose Quality",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+
+                                    tiktokInfo!!.qualities.forEach { quality ->
+                                        Surface(
+                                            onClick = {
+                                                viewModel.addDownload(
+                                                    url = quality.url,
+                                                    suggestedTitle = "${tiktokInfo!!.author} - ${tiktokInfo!!.title}",
+                                                    isAudioOnly = quality.format == "MP3",
+                                                    quality = quality.label
+                                                )
+                                                linkText = ""
+                                                Toast.makeText(context, "TikTok Download Started", Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = if (quality.format == "MP3") Icons.Default.Audiotrack else Icons.Default.PlayCircle,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp),
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    Spacer(modifier = Modifier.width(12.dp))
+                                                    Text(
+                                                        text = quality.label,
+                                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                                                    )
+                                                }
+                                                Text(
+                                                    text = quality.size,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val faviconUrl = remember(linkText) {
+                                        if (linkText.startsWith("http")) {
+                                            try {
+                                                val domain = android.net.Uri.parse(linkText).host
+                                                if (!domain.isNullOrBlank()) {
+                                                    "https://www.google.com/s2/favicons?sz=64&domain=$domain"
+                                                } else null
+                                            } catch (e: Exception) { null }
+                                        } else null
+                                    }
+
+                                    if (faviconUrl != null) {
+                                        AsyncImage(
+                                            model = faviconUrl,
+                                            contentDescription = "Favicon",
+                                            modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Link,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    BasicTextField(
+                                        value = linkText,
+                                        onValueChange = { linkText = it },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .focusable(),
+                                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                        singleLine = true,
+                                        decorationBox = { innerTextField ->
+                                            Box(modifier = Modifier.fillMaxWidth()) {
+                                                if (linkText.isEmpty()) {
+                                                    Text(
+                                                        text = "Paste link here...",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                    )
+                                                }
+                                                innerTextField()
+                                            }
+                                        }
+                                    )
                                     IconButton(
-                                        onClick = { 
-                                            viewModel.addDownload(linkText.trim(), "Manual Download")
-                                            linkText = ""
-                                            Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show()
+                                        onClick = {
+                                            val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                            val clipData = clip?.primaryClip
+                                            if (clipData != null && clipData.itemCount > 0) {
+                                                val text = clipData.getItemAt(0).text?.toString()
+                                                if (!text.isNullOrBlank()) {
+                                                    linkText = text
+                                                }
+                                            }
                                         },
                                         modifier = Modifier.size(28.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Download,
-                                            contentDescription = "Download",
+                                            imageVector = Icons.Default.ContentPaste,
+                                            contentDescription = "Paste",
                                             tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
+                                    }
+                                    if (linkText.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { 
+                                                viewModel.addDownload(linkText.trim(), "Manual Download")
+                                                linkText = ""
+                                                Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Download,
+                                                contentDescription = "Download",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -549,18 +738,12 @@ fun DashboardTab(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Minimalist Safe Browser Portal
                 MinimalCard(
                     onClick = { onNavigateToTab("Browser") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(110.dp)
-                        .testTag("bento_browser_card")
+                    modifier = Modifier.weight(1f).height(110.dp).testTag("bento_browser_card")
                 ) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
@@ -574,327 +757,108 @@ fun DashboardTab(
                                 tint = if (isIncognito) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
-
                             if (isIncognito) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.tertiary)
-                                )
+                                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
                             }
                         }
-
                         Column {
-                            Text(
-                                text = "Safe Browser",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (isIncognito) "Incognito Active" else "Surfing Secure",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
+                            Text(text = "Safe Browser", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
+                            Text(text = if (isIncognito) "Incognito Active" else "Surfing Secure", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         }
                     }
                 }
 
-                // Minimalist Secure Vault Portal
                 MinimalCard(
                     onClick = { onNavigateToTab("Vault") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(110.dp)
-                        .testTag("bento_vault_card")
+                    modifier = Modifier.weight(1f).height(110.dp).testTag("bento_vault_card")
                 ) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Security,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-
+                        Icon(imageVector = Icons.Outlined.Security, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                         Column {
-                            Text(
-                                text = "Private Vault",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "PIN Encrypted",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
+                            Text(text = "Private Vault", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
+                            Text(text = "PIN Encrypted", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         }
                     }
                 }
             }
         }
 
-        // 4. STORAGE OVERVIEW (ENHANCED DESIGN)
         item {
-            MinimalCard(
-                onClick = {},
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("bento_storage_card")
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+            MinimalCard(onClick = {}, modifier = Modifier.fillMaxWidth().testTag("bento_storage_card")) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
-                            Text(
-                                text = "STORAGE",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.5.sp,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                                )
-                            )
+                            Text(text = "STORAGE", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)))
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "${storageStats.usedFormatted} used",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "of ${storageStats.totalFormatted} total capacity",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
+                            Text(text = "${storageStats.usedFormatted} used", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold), color = MaterialTheme.colorScheme.onSurface)
+                            Text(text = "of ${storageStats.totalFormatted} total capacity", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         }
-
-                        // Circular Progress Representation
                         Box(contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(
-                                progress = { storageStats.percentageUsed },
-                                modifier = Modifier.size(60.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                strokeWidth = 6.dp,
-                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                            )
-                            Text(
-                                text = "${(storageStats.percentageUsed * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            CircularProgressIndicator(progress = { storageStats.percentageUsed }, modifier = Modifier.size(60.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 6.dp, trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), strokeCap = androidx.compose.ui.graphics.StrokeCap.Round)
+                            Text(text = "${(storageStats.percentageUsed * 100).toInt()}%", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
-
-                    // Compact quiet legend details
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         StorageTypeBadge("Video", storageStats.videoSizeFormatted, MaterialTheme.colorScheme.primary)
                         StorageTypeBadge("Audio", storageStats.audioSizeFormatted, MaterialTheme.colorScheme.secondary)
                         StorageTypeBadge("Other", MediaUtils.formatBytes(storageStats.usedBytes - storageStats.videoBytes - storageStats.audioBytes), MaterialTheme.colorScheme.tertiary)
                     }
-                    
-                    Surface(
-                        onClick = {
-                            scope.launch {
-                                isOptimizing = true
-                                delay(1500)
-                                isOptimizing = false
-                                Toast.makeText(context, "System optimized", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                    ) {
-                        Text(
-                            text = "Clean & Optimize Storage",
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                    Surface(onClick = { scope.launch { isOptimizing = true; delay(1500); isOptimizing = false; Toast.makeText(context, "System optimized", Toast.LENGTH_SHORT).show() } }, modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))) {
+                        Text(text = "Clean & Optimize Storage", modifier = Modifier.padding(vertical = 10.dp), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
         }
 
-        // 5. RECENTLY COMPLETED SESSION PORTAL
         item {
             if (recentDownload != null) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        Text(
-                            text = "RECENT COMPLETION",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.5.sp,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                            )
-                        )
-                        Text(
-                            text = "VIEW ALL",
-                            modifier = Modifier.clickable { onNavigateToTab("Files") },
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        )
+                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                        Text(text = "RECENT COMPLETION", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)))
+                        Text(text = "VIEW ALL", modifier = Modifier.clickable { onNavigateToTab("Files") }, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary))
                     }
-
-                    MinimalCard(
-                        onClick = { onNavigateToTab("Files") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("bento_recent_download_card")
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (recentDownload.category == "Audio") Icons.Default.Audiotrack else Icons.Default.Movie,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                    MinimalCard(onClick = { onNavigateToTab("Files") }, modifier = Modifier.fillMaxWidth().testTag("bento_recent_download_card")) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f)), contentAlignment = Alignment.Center) {
+                                Icon(imageVector = if (recentDownload.category == "Audio") Icons.Default.Audiotrack else Icons.Default.Movie, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                             }
-
                             Spacer(modifier = Modifier.width(14.dp))
-
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = recentDownload.title,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Text(text = recentDownload.title, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Completed • ${MediaUtils.formatBytes(recentDownload.totalBytes)}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
+                                Text(text = "Completed • ${MediaUtils.formatBytes(recentDownload.totalBytes)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                                 Spacer(modifier = Modifier.height(4.dp))
-                                DownloadHealthIndicators(
-                                    integrityStatus = recentDownload.integrityStatus,
-                                    connectionHealth = recentDownload.connectionHealth
-                                )
+                                DownloadHealthIndicators(integrityStatus = recentDownload.integrityStatus, connectionHealth = recentDownload.connectionHealth)
                             }
-
-                            Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = "View",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Icon(imageVector = Icons.Default.ArrowForward, contentDescription = "View", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
                         }
                     }
                 }
             } else {
-                // Minimal Empty State Card
-                MinimalCard(
-                    onClick = { onNavigateToTab("Browser") },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp, horizontal = 20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Socket Idle",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                MinimalCard(onClick = { onNavigateToTab("Browser") }, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp, horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Text(text = "Socket Idle", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Browse or paste media paths to initiate the stream socket.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            textAlign = TextAlign.Center
-                        )
+                        Text(text = "Browse or paste media paths to initiate the stream socket.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), textAlign = TextAlign.Center)
                     }
                 }
             }
         }
 
-        // 6. PRO TIPS / SYSTEM HEALTH
         item {
-            Column(
-                modifier = Modifier.padding(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "ENGINE INSIGHTS",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.5.sp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                    )
-                )
-
-                MinimalCard(
-                    onClick = {},
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Lightbulb,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier
-                                    .padding(10.dp)
-                                    .size(20.dp)
-                            )
+            Column(modifier = Modifier.padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(text = "ENGINE INSIGHTS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, letterSpacing = 1.5.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)))
+                MinimalCard(onClick = {}, modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Surface(color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f), shape = RoundedCornerShape(12.dp)) {
+                            Icon(imageVector = Icons.Default.Lightbulb, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(10.dp).size(20.dp))
                         }
                         Column {
-                            Text(
-                                text = "Pro Tip",
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Use Safe Browser to detect video links automatically on any website.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                            )
+                            Text(text = "Pro Tip", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                            Text(text = "Use Safe Browser to detect video links automatically on any website.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
                         }
                     }
                 }
@@ -902,189 +866,48 @@ fun DashboardTab(
         }
     }
 
-    // PASTE SOCKET DIALOG
     if (showPasteLinkDialog) {
-        AlertDialog(
-            onDismissRequest = { showPasteLinkDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.CloudDownload,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            },
-            title = {
-                Text("New Download", fontWeight = FontWeight.SemiBold)
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = pastedUrl,
-                        onValueChange = { pastedUrl = it },
-                        label = { Text("URL") },
-                        placeholder = { Text("Paste media link...") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
-                    OutlinedTextField(
-                        value = pastedTitle,
-                        onValueChange = { pastedTitle = it },
-                        label = { Text("Title") },
-                        placeholder = { Text("Optional") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val url = pastedUrl.trim()
-                        if (url.isNotBlank()) {
-                            val title = if (pastedTitle.isBlank()) "Stream Socket Link" else pastedTitle
-                            viewModel.addDownload(url, title)
-                            Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show()
-                            pastedUrl = ""
-                            pastedTitle = ""
-                            showPasteLinkDialog = false
-                        } else {
-                            Toast.makeText(context, "Please provide a valid stream link", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Download")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPasteLinkDialog = false }) {
-                    Text("Cancel")
-                }
-            },
-            shape = RoundedCornerShape(20.dp)
-        )
+        AlertDialog(onDismissRequest = { showPasteLinkDialog = false }, icon = { Icon(imageVector = Icons.Default.CloudDownload, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }, title = { Text("New Download", fontWeight = FontWeight.SemiBold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { OutlinedTextField(value = pastedUrl, onValueChange = { pastedUrl = it }, label = { Text("URL") }, placeholder = { Text("Paste media link...") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)); OutlinedTextField(value = pastedTitle, onValueChange = { pastedTitle = it }, label = { Text("Title") }, placeholder = { Text("Optional") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) } }, confirmButton = { Button(onClick = { val url = pastedUrl.trim(); if (url.isNotBlank()) { val title = if (pastedTitle.isBlank()) "Stream Socket Link" else pastedTitle; viewModel.addDownload(url, title); Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show(); pastedUrl = ""; pastedTitle = ""; showPasteLinkDialog = false } else { Toast.makeText(context, "Please provide a valid stream link", Toast.LENGTH_SHORT).show() } }, shape = RoundedCornerShape(12.dp)) { Text("Download") } }, dismissButton = { TextButton(onClick = { showPasteLinkDialog = false }) { Text("Cancel") } }, shape = RoundedCornerShape(20.dp))
     }
 
-    // DEEP DEFRAGMENTATION PROGRESS DIALOG
     if (isOptimizing) {
-        AlertDialog(
-            onDismissRequest = {},
-            confirmButton = {},
-            title = { Text("Optimizing Storage...", fontWeight = FontWeight.SemiBold) },
-            text = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth().padding(12.dp)
-                ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Reclaiming orphan bits and compressing local schema caches...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            shape = RoundedCornerShape(20.dp)
-        )
+        AlertDialog(onDismissRequest = {}, confirmButton = {}, title = { Text("Optimizing Storage...", fontWeight = FontWeight.SemiBold) }, text = { Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(12.dp)) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary); Spacer(modifier = Modifier.height(16.dp)); Text(text = "Reclaiming orphan bits and compressing local schema caches...", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) } }, shape = RoundedCornerShape(20.dp))
     }
 }
 
 @Composable
-fun QuickActionItem(
-    icon: ImageVector,
-    label: String,
-    containerColor: Color,
-    contentColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(90.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = containerColor,
-        tonalElevation = 4.dp
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(contentColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = contentColor,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+fun QuickActionItem(icon: ImageVector, label: String, containerColor: Color, contentColor: Color, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(onClick = onClick, modifier = modifier.height(90.dp), shape = RoundedCornerShape(24.dp), color = containerColor, tonalElevation = 4.dp) {
+        Column(modifier = Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(contentColor.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) { Icon(imageVector = icon, contentDescription = label, tint = contentColor, modifier = Modifier.size(20.dp)) }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 11.sp
-                ),
-                color = contentColor,
-                textAlign = TextAlign.Center
-            )
+            Text(text = label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 11.sp), color = contentColor, textAlign = TextAlign.Center)
         }
     }
 }
 
 @Composable
-fun StorageTypeBadge(
-    label: String,
-    size: String,
-    color: Color
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Text(
-            text = "$label • $size",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-        )
+fun StorageTypeBadge(label: String, size: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
+        Text(text = "$label • $size", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
     }
 }
 
 @Composable
-fun MinimalCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.surface,
-    content: @Composable () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        content()
+fun MinimalCard(onClick: (() -> Unit)?, modifier: Modifier = Modifier, containerColor: Color = MaterialTheme.colorScheme.surface, content: @Composable () -> Unit) {
+    if (onClick != null) {
+        Card(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = containerColor), border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) { content() }
+    } else {
+        Card(modifier = modifier, shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = containerColor), border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) { content() }
     }
+}
+
+private fun formatDuration(seconds: Long): String {
+    if (seconds <= 0) return "00:00"
+    val mins = seconds / 60
+    val secs = seconds % 60
+    return "${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}"
 }
 
 // Storage space details helper
@@ -1107,28 +930,13 @@ private fun getStorageStats(context: Context, downloads: List<DownloadEntity>): 
         val blockSize = stat.blockSizeLong
         val totalBlocks = stat.blockCountLong
         val availableBlocks = stat.availableBlocksLong
-
         val totalBytes = totalBlocks * blockSize
         val freeBytes = availableBlocks * blockSize
         val usedBytes = totalBytes - freeBytes
-
-        // Filter download sizes
         val videoBytes = downloads.filter { it.category == "Video" && it.status == "COMPLETED" }.sumOf { it.totalBytes }
         val audioBytes = downloads.filter { it.category == "Audio" && it.status == "COMPLETED" }.sumOf { it.totalBytes }
-
         val percentage = if (totalBytes > 0) usedBytes.toFloat() / totalBytes.toFloat() else 0f
-
-        StorageDetails(
-            totalFormatted = MediaUtils.formatBytes(totalBytes),
-            usedFormatted = MediaUtils.formatBytes(usedBytes),
-            freeFormatted = MediaUtils.formatBytes(freeBytes),
-            videoSizeFormatted = MediaUtils.formatBytes(videoBytes),
-            audioSizeFormatted = MediaUtils.formatBytes(audioBytes),
-            usedBytes = usedBytes,
-            videoBytes = videoBytes,
-            audioBytes = audioBytes,
-            percentageUsed = percentage
-        )
+        StorageDetails(totalFormatted = MediaUtils.formatBytes(totalBytes), usedFormatted = MediaUtils.formatBytes(usedBytes), freeFormatted = MediaUtils.formatBytes(freeBytes), videoSizeFormatted = MediaUtils.formatBytes(videoBytes), audioSizeFormatted = MediaUtils.formatBytes(audioBytes), usedBytes = usedBytes, videoBytes = videoBytes, audioBytes = audioBytes, percentageUsed = percentage)
     } catch (e: Exception) {
         StorageDetails("64.0 GB", "42.8 GB", "21.2 GB", "28.4 GB", "1.2 GB", 42800000000L, 28400000000L, 1200000000L, 0.68f)
     }

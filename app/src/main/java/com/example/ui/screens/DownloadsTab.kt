@@ -477,8 +477,17 @@ fun DownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
                 Text(
                     text = "${item.status} • ${if (item.totalBytes > 0) MediaUtils.formatBytes(item.totalBytes) else "Unknown"}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    color = if (item.status == "FAILED") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
+                if (item.status == "FAILED" && !item.errorMessage.isNullOrBlank()) {
+                    Text(
+                        text = item.errorMessage!!,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
