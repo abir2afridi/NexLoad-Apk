@@ -117,8 +117,8 @@ object InstagramCookieStore {
     }
 }
 
-object TikTokExtractor {
-    private const val TAG = "TikTokExtractor"
+object VideoExtractor {
+    private const val TAG = "VideoExtractor"
     private const val MOBILE_API_HOST = "api16-normal-c-useast1a.tiktokv.com"
     private val DEVICE_ID = (7250000000000000000L + (Math.random() * 750000000000000L).toLong()).toString()
     private const val APP_VERSION = "35.1.3"
@@ -719,91 +719,263 @@ object TikTokExtractor {
     private fun extractFacebook(url: String): TikTokVideoData? {
         try {
             val igClient = OkHttpClient.Builder()
-                .connectTimeout(25, TimeUnit.SECONDS)
-                .readTimeout(25, TimeUnit.SECONDS)
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
                 .followRedirects(true)
                 .followSslRedirects(true)
                 .build()
 
-            val requestBuilder = Request.Builder().url(url)
-            requestBuilder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
-            requestBuilder.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-            requestBuilder.header("Accept-Language", "en-US,en;q=0.9")
+            val canonicalUrl = resolveFacebookUrl(igClient, url)
+            Log.d(TAG, "Facebook canonical URL: $canonicalUrl")
 
-            val response = igClient.newCall(requestBuilder.build()).execute()
-            val html = response.body?.string() ?: return null
-            Log.d(TAG, "Facebook page length: ${html.length}")
-
-            // Strategy 1: og:video meta tag
-            val ogVideoPattern = Pattern.compile(
-                """<meta\s+[^>]*property=["']og:video["'][^>]*content=["']([^"']+)["']""",
-                Pattern.CASE_INSENSITIVE
-            )
-            val ogVideoMatcher = ogVideoPattern.matcher(html)
-            if (ogVideoMatcher.find()) {
-                val videoUrl = ogVideoMatcher.group(1)
-                if (!videoUrl.isNullOrBlank()) {
-                    val title = extractMetaContent(html, "og:title") ?: ""
-                    val thumbnail = extractMetaContent(html, "og:image") ?: ""
-                    return TikTokVideoData(
-                        id = "", title = title, author = "Facebook", authorId = "",
-                        thumbnail = thumbnail, duration = 0L,
-                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
-                    )
-                }
+            val embedResult = extractFacebookEmbed(igClient, canonicalUrl)
+            if (embedResult != null) {
+                Log.d(TAG, "Facebook embed extraction success")
+                return embedResult
             }
 
-            // Strategy 2: sd_src or hd_src in page data
-            val hdPattern = Pattern.compile(""""hd_src"\s*:\s*"([^"]+)"""")
-            val hdMatcher = hdPattern.matcher(html)
-            if (hdMatcher.find()) {
-                val videoUrl = hdMatcher.group(1)?.replace("\\u002F", "/")
-                if (!videoUrl.isNullOrBlank()) {
-                    val title = extractMetaContent(html, "og:title") ?: ""
-                    val thumbnail = extractMetaContent(html, "og:image") ?: ""
-                    return TikTokVideoData(
-                        id = "", title = title, author = "Facebook", authorId = "",
-                        thumbnail = thumbnail, duration = 0L,
-                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
-                    )
-                }
+            val touchResult = extractFacebookTouch(igClient, canonicalUrl)
+            if (touchResult != null) {
+                Log.d(TAG, "Facebook touch extraction success")
+                return touchResult
             }
 
-            val sdPattern = Pattern.compile(""""sd_src"\s*:\s*"([^"]+)"""")
-            val sdMatcher = sdPattern.matcher(html)
-            if (sdMatcher.find()) {
-                val videoUrl = sdMatcher.group(1)?.replace("\\u002F", "/")
-                if (!videoUrl.isNullOrBlank()) {
-                    val title = extractMetaContent(html, "og:title") ?: ""
-                    val thumbnail = extractMetaContent(html, "og:image") ?: ""
-                    return TikTokVideoData(
-                        id = "", title = title, author = "Facebook", authorId = "",
-                        thumbnail = thumbnail, duration = 0L,
-                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
-                    )
-                }
+            val mbasicResult = extractFacebookViaMbasic(igClient, canonicalUrl)
+            if (mbasicResult != null) {
+                Log.d(TAG, "Facebook mbasic extraction success")
+                return mbasicResult
             }
 
-            // Strategy 3: <video> tag
-            val videoTagPattern = Pattern.compile("""<video[^>]+src=["']([^"']+)["']""", Pattern.CASE_INSENSITIVE)
-            val videoTagMatcher = videoTagPattern.matcher(html)
-            if (videoTagMatcher.find()) {
-                val videoUrl = videoTagMatcher.group(1)
-                if (!videoUrl.isNullOrBlank()) {
-                    return TikTokVideoData(
-                        id = "", title = extractMetaContent(html, "og:title") ?: "", author = "Facebook", authorId = "",
-                        thumbnail = "", duration = 0L,
-                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
-                    )
-                }
+            val standardResult = extractFacebookStandard(igClient, canonicalUrl)
+            if (standardResult != null) {
+                Log.d(TAG, "Facebook standard extraction success")
+                return standardResult
             }
 
-            Log.w(TAG, "Facebook: no video found in page")
+            Log.w(TAG, "Facebook: all strategies failed for $canonicalUrl")
             return null
         } catch (e: Exception) {
             Log.w(TAG, "extractFacebook failed", e)
             return null
         }
+    }
+
+    private fun resolveFacebookUrl(client: OkHttpClient, url: String): String {
+        try {
+            val request = Request.Builder().url(url)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
+                .build()
+            val response = client.newCall(request).execute()
+            return response.request.url.toString()
+        } catch (e: Exception) {
+            return url
+        }
+    }
+
+    private fun extractFacebookEmbed(client: OkHttpClient, url: String): TikTokVideoData? {
+        try {
+            val embedUrl = "https://www.facebook.com/plugins/video.php?href=${java.net.URLEncoder.encode(url, "UTF-8")}&show_text=false&width=560"
+            val request = Request.Builder().url(embedUrl)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val html = response.body?.string() ?: return null
+            Log.d(TAG, "Facebook embed page length: ${html.length}")
+
+            return extractFacebookVideoFromHtml(html)
+        } catch (e: Exception) {
+            Log.w(TAG, "Facebook embed failed", e)
+            return null
+        }
+    }
+
+    private fun extractFacebookTouch(client: OkHttpClient, url: String): TikTokVideoData? {
+        try {
+            val touchUrl = url
+                .replace("https://www.facebook.com", "https://touch.facebook.com")
+                .replace("https://web.facebook.com", "https://touch.facebook.com")
+                .replace("https://m.facebook.com", "https://touch.facebook.com")
+
+            val request = Request.Builder().url(touchUrl)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val html = response.body?.string() ?: return null
+            Log.d(TAG, "Facebook touch page length: ${html.length}")
+
+            return extractFacebookVideoFromHtml(html)
+        } catch (e: Exception) {
+            Log.w(TAG, "Facebook touch failed", e)
+            return null
+        }
+    }
+
+    private fun extractFacebookViaMbasic(client: OkHttpClient, url: String): TikTokVideoData? {
+        try {
+            val mbasicUrl = url
+                .replace("https://www.facebook.com", "https://mbasic.facebook.com")
+                .replace("https://m.facebook.com", "https://mbasic.facebook.com")
+                .replace("https://web.facebook.com", "https://mbasic.facebook.com")
+                .replace("https://touch.facebook.com", "https://mbasic.facebook.com")
+
+            val request = Request.Builder().url(mbasicUrl)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val html = response.body?.string() ?: return null
+            Log.d(TAG, "Facebook mbasic page length: ${html.length}")
+
+            return extractFacebookVideoFromHtml(html)
+        } catch (e: Exception) {
+            Log.w(TAG, "Facebook mbasic failed", e)
+            return null
+        }
+    }
+
+    private fun extractFacebookStandard(client: OkHttpClient, url: String): TikTokVideoData? {
+        try {
+            val request = Request.Builder().url(url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val html = response.body?.string() ?: return null
+            Log.d(TAG, "Facebook standard page length: ${html.length}")
+
+            return extractFacebookVideoFromHtml(html)
+        } catch (e: Exception) {
+            Log.w(TAG, "Facebook standard extraction failed", e)
+            return null
+        }
+    }
+
+    private fun extractFacebookVideoFromHtml(html: String): TikTokVideoData? {
+        if (html.length < 100) return null
+
+        val srcUrl = extractFbSrcUrl(html)
+        if (srcUrl != null) {
+            return TikTokVideoData(
+                id = "", title = extractMetaContent(html, "og:title") ?: "Facebook Video", author = "Facebook", authorId = "",
+                thumbnail = extractMetaContent(html, "og:image") ?: "", duration = 0L,
+                videoUrl = srcUrl, videoUrlNoWatermark = null, audioUrl = null
+            )
+        }
+
+        val ogVideoUrl = extractMetaContent(html, "og:video")
+            ?: extractMetaContent(html, "og:video:url")
+            ?: extractMetaContent(html, "og:video:secure_url")
+        if (!ogVideoUrl.isNullOrBlank()) {
+            return TikTokVideoData(
+                id = "", title = extractMetaContent(html, "og:title") ?: "Facebook Video", author = "Facebook", authorId = "",
+                thumbnail = extractMetaContent(html, "og:image") ?: "", duration = 0L,
+                videoUrl = ogVideoUrl, videoUrlNoWatermark = null, audioUrl = null
+            )
+        }
+
+        val videoTagPatterns = listOf(
+            Pattern.compile("""<video[^>]+src=["']([^"']+)["']""", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("""<source[^>]+src=["']([^"']+)["']""", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("""<video[^>]+data-src=["']([^"']+)["']""", Pattern.CASE_INSENSITIVE),
+        )
+        for (pattern in videoTagPatterns) {
+            val matcher = pattern.matcher(html)
+            if (matcher.find()) {
+                val videoUrl = matcher.group(1)
+                if (!videoUrl.isNullOrBlank() && videoUrl.contains("http")) {
+                    return TikTokVideoData(
+                        id = "", title = extractMetaContent(html, "og:title") ?: "Facebook Video", author = "Facebook", authorId = "",
+                        thumbnail = extractMetaContent(html, "og:image") ?: "", duration = 0L,
+                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
+                    )
+                }
+            }
+        }
+
+        val jsonPatterns = listOf(
+            Pattern.compile(""""play_url"\s*:\s*\{\s*"uri"\s*:\s*"([^"]+)""""),
+            Pattern.compile(""""play_url"\s*:\s*"([^"]+)""""),
+            Pattern.compile(""""video_url"\s*:\s*"([^"]+)""""),
+        )
+        for (pattern in jsonPatterns) {
+            val matcher = pattern.matcher(html)
+            if (matcher.find()) {
+                val videoUrl = matcher.group(1)?.replace("\\u002F", "/")?.replace("\\/", "/")
+                if (!videoUrl.isNullOrBlank() && videoUrl.contains("http")) {
+                    return TikTokVideoData(
+                        id = "", title = extractMetaContent(html, "og:title") ?: "Facebook Video", author = "Facebook", authorId = "",
+                        thumbnail = extractMetaContent(html, "og:image") ?: "", duration = 0L,
+                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
+                    )
+                }
+            }
+        }
+
+        val cdnPattern = Pattern.compile("""(https?://[^"'\s]+(?:fbcdn|scontent)[^"'\s]+\.mp4[^"'\s]*)""")
+        val cdnMatcher = cdnPattern.matcher(html)
+        if (cdnMatcher.find()) {
+            val videoUrl = cdnMatcher.group(1)
+            if (!videoUrl.isNullOrBlank()) {
+                return TikTokVideoData(
+                    id = "", title = extractMetaContent(html, "og:title") ?: "Facebook Video", author = "Facebook", authorId = "",
+                    thumbnail = extractMetaContent(html, "og:image") ?: "", duration = 0L,
+                    videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
+                )
+            }
+        }
+
+        val mp4Pattern = Pattern.compile("""(https?://[^"'\s]+\.mp4[^"'\s]*)""")
+        val mp4Matcher = mp4Pattern.matcher(html)
+        if (mp4Matcher.find()) {
+            val videoUrl = mp4Matcher.group(1)
+            if (!videoUrl.isNullOrBlank() && !videoUrl.contains("static") && !videoUrl.contains("bundle")) {
+                return TikTokVideoData(
+                    id = "", title = extractMetaContent(html, "og:title") ?: "Facebook Video", author = "Facebook", authorId = "",
+                    thumbnail = extractMetaContent(html, "og:image") ?: "", duration = 0L,
+                    videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
+                )
+            }
+        }
+
+        Log.w(TAG, "Facebook: no video found in HTML (length=${html.length})")
+        return null
+    }
+
+    private fun extractFbSrcUrl(html: String): String? {
+        val patterns = listOf(
+            Pattern.compile(""""hd_src"\s*:\s*"([^"]+)""""),
+            Pattern.compile(""""sd_src"\s*:\s*"([^"]+)""""),
+            Pattern.compile(""""hd_src_no_ratelimit"\s*:\s*"([^"]+)""""),
+            Pattern.compile(""""sd_src_no_ratelimit"\s*:\s*"([^"]+)""""),
+            Pattern.compile("""hd_src\s*=\s*"([^"]+)"""),
+            Pattern.compile("""sd_src\s*=\s*"([^"]+)"""),
+        )
+        for (pattern in patterns) {
+            val matcher = pattern.matcher(html)
+            if (matcher.find()) {
+                val videoUrl = matcher.group(1)?.replace("\\u002F", "/")?.replace("\\/", "/")
+                if (!videoUrl.isNullOrBlank() && videoUrl.contains("http")) {
+                    return videoUrl
+                }
+            }
+        }
+        return null
+    }
+
+    private fun extractJsonString(json: String, key: String): String? {
+        val pattern = Pattern.compile(""""$key"\s*:\s*"([^"]+)"""")
+        val matcher = pattern.matcher(json)
+        return if (matcher.find()) matcher.group(1)?.replace("\\u002F", "/") else null
     }
 
     // ── Twitter / X extraction ──────────────────────────────────────

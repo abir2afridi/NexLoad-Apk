@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
-import com.example.data.download.TikTokExtractor
+import com.example.data.download.VideoExtractor
 import com.example.ui.components.DownloadHealthIndicators
 import com.example.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.Dispatchers
@@ -551,7 +551,7 @@ fun DashboardTab(
                                 analyzeError = null
                                 isFetching = true
                                 val result = withContext(Dispatchers.IO) {
-                                    TikTokExtractor.extract(linkText)
+                                    VideoExtractor.extract(linkText)
                                 }
                                 result.fold(
                                     onSuccess = { data ->
