@@ -697,6 +697,19 @@ fun DashboardTab(
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
+                                    if (linkText.isNotBlank()) {
+                                        IconButton(
+                                            onClick = { linkText = ""; analyzeError = null; tiktokInfo = null },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Clear",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
