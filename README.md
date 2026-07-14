@@ -6,13 +6,20 @@ An Android application for downloading videos and media from the web with a buil
 
 - **In-App Browser** — Full WebView with incognito mode, HTTPS-only toggle, tracker blocking, bookmarking, and media detection via JavaScript bridge
 - **Multi-Threaded Download Engine** — Segmented (chunked) downloads with pause/resume, real-time speed tracking, and adaptive threading
-- **TikTok Downloader** — Paste TikTok links (including `vt.tiktok.com` / `vm.tiktok.com` short links) on the dashboard; extracts video info, quality options (HD no-watermark, watermarked, audio-only), and downloads directly
-- **Media Detection** — Automatically detects `<video>` and downloadable media links (`.mp4`, `.mp3`, `.m4a`) on web pages
+- **Analyze-First UX** — Paste any link on the dashboard, tap Analyze, see platform info + quality options, then download
+- **Multi-Platform Video Downloader** — Supports TikTok, Instagram, Facebook, Twitter/X, Reddit, Pinterest, SoundCloud, Vimeo, Twitch, Dailymotion, Tumblr, and ANY website via generic fallback extraction
+- **TikTok Downloader** — TikWM API + 9 fallback strategies for HD no-watermark, watermarked, and audio-only downloads
+- **Instagram Downloader** — 4-strategy chain: third-party API (primary), embed /captioned/, GraphQL with session warmup, regular embed
+- **Facebook Downloader** — Third-party API (yt-dlp based), embed plugin, touch/mbasic/mobile pages with cookie support
+- **Twitter/X Downloader** — og:video, twitter:player:stream, and CDN URL extraction
+- **Generic Fallback** — 10 extraction strategies for ANY website (og:video, JSON-LD, video tags, CDN patterns, etc.)
+- **Social Media Authentication** — WebView-based Instagram and Facebook login for cookie-captured extraction
+- **Media Detection** — Automatically detects `<video>` and downloadable media links on web pages
 - **Download Queue** — Active downloads section with progress bars, speed indicators, estimated remaining time, and health badges
 - **Private Vault** — PIN-protected secure storage for sensitive downloads; files hidden from device gallery
 - **File Library** — Completed downloads browser with category filtering (Video/Audio/Images/Other), video playback, file sharing, and move-to-vault
 - **Download Health Monitoring** — Background WorkManager worker that periodically verifies file integrity and connection health
-- **Customizable Theme** — Light, Dark, System, and AMOLED Black modes with 13 accent colors (Bento, Teal, Blue, Orange, Red, Pink, Purple, Indigo, Cyan, Green, Yellow, Orange, Brown)
+- **Customizable Theme** — Light, Dark, System, and AMOLED Black modes with 13 accent colors
 - **Storage Management** — Visual storage overview with video/audio size breakdown and one-tap cache optimization
 
 ## Tech Stack
@@ -23,7 +30,7 @@ An Android application for downloading videos and media from the web with a buil
 | UI | Jetpack Compose + Material 3 |
 | Architecture | MVVM with Repository Pattern |
 | Database | Room (SQLite) via Kotlin Coroutines Flow |
-| Networking | OkHttp 4.x, Retrofit 2.x, Moshi |
+| Networking | OkHttp 4.x, Moshi |
 | Browser Engine | Android WebView with JavaScript Interface |
 | Background Work | WorkManager 2.9.x |
 | Image Loading | Coil |
@@ -54,32 +61,48 @@ app/src/main/java/com/example/
 ├── ui/
 │   ├── viewmodel/MainViewModel.kt     # Central ViewModel (StateFlow + Room)
 │   ├── screens/
-│   │   ├── DashboardTab.kt            # Home dashboard (storage, streams, recent)
+│   │   ├── DashboardTab.kt            # Home dashboard with analyze-first link input
 │   │   ├── BrowserTab.kt              # WebView browser with media detection
 │   │   ├── DownloadsTab.kt            # Download queue (active + completed)
 │   │   ├── FilesTab.kt                # File library with categories
 │   │   ├── VaultTab.kt                # PIN-protected private vault
-│   │   └── SettingsTab.kt             # Preferences, theme, storage path, about
+│   │   ├── SettingsTab.kt             # Preferences, theme, social media login, about
+│   │   ├── InstagramLoginActivity.kt  # WebView-based Instagram login for cookie capture
+│   │   └── FacebookLoginActivity.kt   # WebView-based Facebook login for cookie capture
 │   ├── components/                    # Reusable composables
 │   │   ├── TabHeader.kt               # Section header with category + title
 │   │   ├── DownloadHealthIndicators.kt # Integrity & connection health badges
 │   │   └── VideoPlayerDialog.kt       # Full-screen video player
 │   └── theme/                         # Colors, typography, theme system
-│       ├── Color.kt
-│       ├── Theme.kt
-│       └── Type.kt
 ├── data/
 │   ├── database/                      # Room entities, DAOs, database
 │   │   ├── Entities.kt                # DownloadEntity, BookmarkEntity
 │   │   ├── DAOs.kt                    # DownloadDao, queries
 │   │   └── AppDatabase.kt             # Room database singleton
 │   └── download/                      # Download engine + utilities
+│       ├── VideoExtractor.kt          # Multi-platform video extraction (20+ platforms)
 │       ├── DownloadEngine.kt          # Multi/single-thread download manager
-│       ├── TikTokExtractor.kt         # TikTok video extraction (TikWM API + 9 fallback strategies)
 │       ├── TikTokCookieStore.kt       # Shared CookieJar for TikTok requests
 │       ├── MediaUtils.kt              # Formatting, filename parsing
 │       └── DownloadIntegrityWorker.kt # Periodic health checks via WorkManager
 ```
+
+## Supported Platforms
+
+| Platform | Extraction Method |
+|----------|------------------|
+| TikTok | TikWM API + 9 fallback strategies |
+| Instagram | Third-party API + embed + GraphQL |
+| Facebook | Third-party API + embed + touch/mbasic/mobile |
+| Twitter/X | og:video + twitter:player:stream + CDN |
+| Reddit | JSON API extraction |
+| Pinterest | og:video + CDN |
+| SoundCloud | oEmbed + og:audio |
+| Vimeo | oEmbed extraction |
+| Twitch | og:video + CDN |
+| Dailymotion | oEmbed extraction |
+| Tumblr | og:video + CDN |
+| Any Website | 10-strategy generic fallback |
 
 ## Developer
 
