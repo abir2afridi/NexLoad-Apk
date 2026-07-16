@@ -730,7 +730,8 @@ object VideoExtractor {
             """<meta\s+[^>]*property=["']${Regex.escape(property)}["'][^>]*content=["']([^"']+)["']""",
             Pattern.CASE_INSENSITIVE
         )
-        return if (pattern.matcher(html).find()) pattern.matcher(html).group(1) else null
+        val matcher = pattern.matcher(html)
+        return if (matcher.find()) matcher.group(1) else null
     }
 
     private fun extractInstagramAuthor(html: String): String {
@@ -1334,6 +1335,39 @@ object VideoExtractor {
                 val videoUrl = cdnMatcher.group()?.replace("\\u002F", "/")
                 if (!videoUrl.isNullOrBlank()) {
                     val title = extractMetaContent(html, "og:title") ?: ""
+                    return TikTokVideoData(
+                        id = "", title = title, author = "Pinterest", authorId = "",
+                        thumbnail = "", duration = 0L,
+                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
+                    )
+                }
+            }
+
+            // Strategy 4: JSON-LD VideoObject
+            val jsonLdResult = extractFromJsonLd(html)
+            if (jsonLdResult != null) {
+                Log.d(TAG, "Pinterest: found via JSON-LD")
+                return jsonLdResult
+            }
+
+            // Strategy 5: <video> tag
+            val videoTagResult = extractFromVideoTag(html)
+            if (videoTagResult != null) {
+                Log.d(TAG, "Pinterest: found via <video> tag")
+                return videoTagResult
+            }
+
+            // Strategy 6: <source> tag inside <video>
+            val sourcePattern = Pattern.compile(
+                """<source[^>]+src=["']([^"']+)["'][^>]*type=["']video/[^"']*["']""",
+                Pattern.CASE_INSENSITIVE
+            )
+            val sourceMatcher = sourcePattern.matcher(html)
+            if (sourceMatcher.find()) {
+                val videoUrl = sourceMatcher.group(1)?.replace("\\u002F", "/")
+                if (!videoUrl.isNullOrBlank()) {
+                    val title = extractMetaContent(html, "og:title") ?: ""
+                    Log.d(TAG, "Pinterest: found via <source> tag")
                     return TikTokVideoData(
                         id = "", title = title, author = "Pinterest", authorId = "",
                         thumbnail = "", duration = 0L,
@@ -2414,25 +2448,22 @@ object VideoExtractor {
                 """<meta\s+[^>]*property=["']og:video["'][^>]*content=["']([^"']+)["']""",
                 Pattern.CASE_INSENSITIVE
             )
-            val videoUrl = if (videoPattern.matcher(html).find()) {
-                videoPattern.matcher(html).group(1)
-            } else null
+            val videoMatcher = videoPattern.matcher(html)
+            val videoUrl = if (videoMatcher.find()) videoMatcher.group(1) else null
 
             val thumbnailPattern = Pattern.compile(
                 """<meta\s+[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']""",
                 Pattern.CASE_INSENSITIVE
             )
-            val thumbnail = if (thumbnailPattern.matcher(html).find()) {
-                thumbnailPattern.matcher(html).group(1) ?: ""
-            } else ""
+            val thumbnailMatcher = thumbnailPattern.matcher(html)
+            val thumbnail = if (thumbnailMatcher.find()) thumbnailMatcher.group(1) ?: "" else ""
 
             val titlePattern = Pattern.compile(
                 """<meta\s+[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']""",
                 Pattern.CASE_INSENSITIVE
             )
-            val title = if (titlePattern.matcher(html).find()) {
-                titlePattern.matcher(html).group(1) ?: ""
-            } else ""
+            val titleMatcher = titlePattern.matcher(html)
+            val title = if (titleMatcher.find()) titleMatcher.group(1) ?: "" else ""
 
             val authorPattern = Pattern.compile("""@(\w+)""", Pattern.CASE_INSENSITIVE)
             val authorMatcher = authorPattern.matcher(html)
@@ -2528,9 +2559,8 @@ object VideoExtractor {
                 """<meta\s+[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']""",
                 Pattern.CASE_INSENSITIVE
             )
-            val title = if (titlePattern.matcher(html).find()) {
-                titlePattern.matcher(html).group(1) ?: ""
-            } else ""
+            val titleMatcher = titlePattern.matcher(html)
+            val title = if (titleMatcher.find()) titleMatcher.group(1) ?: "" else ""
 
             Log.d(TAG, "extractFromVideoTag: found <video src>")
             return TikTokVideoData(
