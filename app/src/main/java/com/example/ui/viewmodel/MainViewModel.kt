@@ -28,6 +28,13 @@ data class DetectedMedia(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+data class TabData(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val title: String = "New Tab",
+    val url: String = "https://google.com",
+    val isIncognito: Boolean = false
+)
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "MainViewModel"
     private val db = AppDatabase.getDatabase(application)
@@ -50,7 +57,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _detectedMediaList = MutableStateFlow<List<DetectedMedia>>(emptyList())
     val detectedMediaList: StateFlow<List<DetectedMedia>> = _detectedMediaList.asStateFlow()
 
-    // Browser state
+    // Tab gallery
+    val tabs = MutableStateFlow(listOf(TabData()))
+    val activeTabId = MutableStateFlow<String?>(null)
+
+    // Browser state (synced from active tab for backward compat)
     val currentWebUrl = MutableStateFlow("https://google.com")
     val isIncognito = MutableStateFlow(false)
 
@@ -147,6 +158,65 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "Enqueued immediate DownloadIntegrityWorker run")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to run immediate integrity check", e)
+        }
+    }
+
+    /**
+     * Tab Gallery Management
+     */
+    fun addTab(isIncognito: Boolean = false) {
+        val newTab = TabData(isIncognito = isIncognito)
+        tabs.value = tabs.value + newTab
+        activeTabId.value = newTab.id
+        currentWebUrl.value = newTab.url
+        this.isIncognito.value = newTab.isIncognito
+    }
+
+    fun switchTab(tabId: String) {
+        val tab = tabs.value.find { it.id == tabId } ?: return
+        activeTabId.value = tabId
+        currentWebUrl.value = tab.url
+        isIncognito.value = tab.isIncognito
+    }
+
+    fun closeTab(tabId: String) {
+        val currentTabs = tabs.value
+        if (currentTabs.size <= 1) return
+        val index = currentTabs.indexOfFirst { it.id == tabId }
+        val newList = currentTabs.filter { it.id != tabId }
+        tabs.value = newList
+        if (tabId == activeTabId.value) {
+            val newIndex = minOf(index, newList.size - 1)
+            val newTab = newList[newIndex]
+            activeTabId.value = newTab.id
+            currentWebUrl.value = newTab.url
+            isIncognito.value = newTab.isIncognito
+        }
+    }
+
+    fun updateActiveTabUrl(url: String) {
+        currentWebUrl.value = url
+        activeTabId.value?.let { activeId ->
+            tabs.value = tabs.value.map {
+                if (it.id == activeId) it.copy(url = url) else it
+            }
+        }
+    }
+
+    fun updateActiveTabTitle(title: String) {
+        activeTabId.value?.let { activeId ->
+            tabs.value = tabs.value.map {
+                if (it.id == activeId) it.copy(title = title) else it
+            }
+        }
+    }
+
+    fun toggleActiveTabIncognito() {
+        val activeId = activeTabId.value ?: return
+        val newState = !isIncognito.value
+        isIncognito.value = newState
+        tabs.value = tabs.value.map {
+            if (it.id == activeId) it.copy(isIncognito = newState) else it
         }
     }
 
