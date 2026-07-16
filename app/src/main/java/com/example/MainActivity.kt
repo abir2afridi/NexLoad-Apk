@@ -102,7 +102,6 @@ class MainActivity : ComponentActivity() {
                             "Browser" -> BrowserTab(viewModel)
                             "Downloads" -> DownloadsTab(viewModel)
                             "Vault" -> VaultTab(viewModel)
-                            "Files" -> FilesTab(viewModel)
                             "Settings" -> SettingsTab(viewModel, onNavigateToAbout = { currentTab = "About" })
                             "About" -> AboutTab(onBack = { currentTab = "Settings" })
                         }
@@ -208,16 +207,8 @@ class MainActivity : ComponentActivity() {
                                                 onClick = { currentTab = "Downloads" },
                                                 filledIcon = Icons.Filled.CloudDownload,
                                                 outlinedIcon = Icons.Outlined.CloudDownload,
-                                                label = "Downloads",
+                                                label = "Library",
                                                 modifier = Modifier.testTag("nav_downloads")
-                                            )
-                                            FloatingNavItem(
-                                                selected = currentTab == "Files",
-                                                onClick = { currentTab = "Files" },
-                                                filledIcon = Icons.Filled.Folder,
-                                                outlinedIcon = Icons.Outlined.Folder,
-                                                label = "Files",
-                                                modifier = Modifier.testTag("nav_files")
                                             )
                                             FloatingNavItem(
                                                 selected = currentTab == "Settings" || currentTab == "About",

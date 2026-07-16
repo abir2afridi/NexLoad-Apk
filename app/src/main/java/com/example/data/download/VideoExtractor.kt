@@ -277,7 +277,8 @@ object VideoExtractor {
                     Log.d(TAG, "Success via Pinterest extraction: ${pinResult.title}")
                     return Result.success(pinResult)
                 }
-                return Result.failure(Exception("Could not extract Pinterest video."))
+                Log.w(TAG, "Pinterest dedicated extraction failed, falling through to generic")
+                // Fall through to generic instead of failing immediately
             }
 
             // ── SoundCloud ───────────────────────────────────────
@@ -336,6 +337,10 @@ object VideoExtractor {
             if (genericResult != null) {
                 Log.d(TAG, "Success via generic extraction: ${genericResult.title}")
                 return Result.success(genericResult)
+            }
+
+            if (isPinterest) {
+                return Result.failure(Exception("Could not extract Pinterest video. Pinterest may require a logged-in session."))
             }
 
             // ── TikTok extraction ────────────────────────────────
@@ -1297,91 +1302,327 @@ object VideoExtractor {
             val html = response.body?.string() ?: return null
             Log.d(TAG, "Pinterest page length: ${html.length}")
 
-            // Strategy 1: og:video meta tag
-            val ogVideoUrl = extractMetaContent(html, "og:video")
-            if (!ogVideoUrl.isNullOrBlank()) {
-                val title = extractMetaContent(html, "og:title") ?: ""
-                val thumbnail = extractMetaContent(html, "og:image") ?: ""
-                return TikTokVideoData(
-                    id = "", title = title, author = "Pinterest", authorId = "",
-                    thumbnail = thumbnail, duration = 0L,
-                    videoUrl = ogVideoUrl, videoUrlNoWatermark = null, audioUrl = null
-                )
+            var result: TikTokVideoData? = null
+
+            // Helper: convert Pinterest HLS URL to direct mp4
+            fun convertPinUrl(url: String): String {
+                return url
+                    .replace("/hls/", "/720p/")
+                    .replace("hls", "720p")
+                    .replace(".m3u8", ".mp4")
+                    // Also try replacing just the filename part for variant URLs
+                    .replace(Regex("""/\w+\.m3u8"""), "/720p.mp4")
             }
 
-            // Strategy 2: video_src
-            val videoSrcPattern = Pattern.compile("""video_list.*?"url"\s*:\s*"([^"]+)"""")
-            val videoSrcMatcher = videoSrcPattern.matcher(html)
-            if (videoSrcMatcher.find()) {
-                val videoUrl = videoSrcMatcher.group(1)?.replace("\\u002F", "/")
-                if (!videoUrl.isNullOrBlank()) {
+            // Strategy 1: direct video URL from pinimg CDN (Python approach)
+            // Same as: re.findall(r'https://v1\.pinimg\.com/videos/[^"]+', html)
+            if (result == null) {
+                val videoUrlPattern = Pattern.compile(
+                    """https?://v1\.pinimg\.com/videos/[^"'\s<>]+""",
+                    Pattern.CASE_INSENSITIVE
+                )
+                val videoUrlMatcher = videoUrlPattern.matcher(html)
+                val allUrls = mutableListOf<String>()
+                while (videoUrlMatcher.find()) {
+                    val u = videoUrlMatcher.group()?.replace("\\u002F", "/") ?: continue
+                    if (u !in allUrls) allUrls.add(u)
+                }
+                // Prefer mp4 over m3u8
+                val sorted = allUrls.sortedByDescending { it.endsWith(".mp4", ignoreCase = true) }
+                for (rawUrl in sorted) {
+                    val isMp4 = rawUrl.endsWith(".mp4", ignoreCase = true)
+                    val isM3u8 = rawUrl.endsWith(".m3u8", ignoreCase = true)
+                    if (!isMp4 && !isM3u8) continue
+                    val finalUrl = if (isM3u8) convertPinUrl(rawUrl) else rawUrl
+                    if (finalUrl.endsWith(".mp4", ignoreCase = true)) {
+                        Log.d(TAG, "Pinterest: found URL (${if (isM3u8) "converted" else "direct"})")
+                        result = TikTokVideoData(
+                            id = "", title = extractMetaContent(html, "og:title") ?: "",
+                            author = "Pinterest", authorId = "",
+                            thumbnail = extractMetaContent(html, "og:image") ?: "",
+                            duration = 0L,
+                            videoUrl = finalUrl, videoUrlNoWatermark = null, audioUrl = null
+                        )
+                        break
+                    }
+                }
+            }
+
+            // Strategy 2: og:video meta tag
+            if (result == null) {
+                val ogVideoUrl = extractMetaContent(html, "og:video")
+                if (!ogVideoUrl.isNullOrBlank()) {
                     val title = extractMetaContent(html, "og:title") ?: ""
                     val thumbnail = extractMetaContent(html, "og:image") ?: ""
-                    return TikTokVideoData(
+                    val finalUrl = if (ogVideoUrl.endsWith(".m3u8", ignoreCase = true))
+                        convertPinUrl(ogVideoUrl) else ogVideoUrl
+                    result = TikTokVideoData(
                         id = "", title = title, author = "Pinterest", authorId = "",
                         thumbnail = thumbnail, duration = 0L,
-                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
+                        videoUrl = finalUrl, videoUrlNoWatermark = null, audioUrl = null
                     )
                 }
             }
 
-            // Strategy 3: CDN URL pattern
-            val cdnPattern = Pattern.compile(
-                """https?://(?:v1\.pinimg\.com|i\.pinimg\.com|s-media)[^"'\s<>]*\.mp4[^"'\s<>]*""",
-                Pattern.CASE_INSENSITIVE
-            )
-            val cdnMatcher = cdnPattern.matcher(html)
-            if (cdnMatcher.find()) {
-                val videoUrl = cdnMatcher.group()?.replace("\\u002F", "/")
-                if (!videoUrl.isNullOrBlank()) {
-                    val title = extractMetaContent(html, "og:title") ?: ""
-                    return TikTokVideoData(
-                        id = "", title = title, author = "Pinterest", authorId = "",
-                        thumbnail = "", duration = 0L,
-                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
-                    )
+            // Strategy 3: video_src JSON pattern
+            if (result == null) {
+                val videoSrcPattern = Pattern.compile("""video_list.*?"url"\s*:\s*"([^"]+)"""")
+                val videoSrcMatcher = videoSrcPattern.matcher(html)
+                if (videoSrcMatcher.find()) {
+                    var videoUrl = videoSrcMatcher.group(1)?.replace("\\u002F", "/")
+                    if (!videoUrl.isNullOrBlank()) {
+                        if (videoUrl.endsWith(".m3u8", ignoreCase = true)) {
+                            videoUrl = convertPinUrl(videoUrl)
+                        }
+                        val title = extractMetaContent(html, "og:title") ?: ""
+                        val thumbnail = extractMetaContent(html, "og:image") ?: ""
+                        result = TikTokVideoData(
+                            id = "", title = title, author = "Pinterest", authorId = "",
+                            thumbnail = thumbnail, duration = 0L,
+                            videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
+                        )
+                    }
                 }
             }
 
-            // Strategy 4: JSON-LD VideoObject
-            val jsonLdResult = extractFromJsonLd(html)
-            if (jsonLdResult != null) {
-                Log.d(TAG, "Pinterest: found via JSON-LD")
-                return jsonLdResult
-            }
-
-            // Strategy 5: <video> tag
-            val videoTagResult = extractFromVideoTag(html)
-            if (videoTagResult != null) {
-                Log.d(TAG, "Pinterest: found via <video> tag")
-                return videoTagResult
-            }
-
-            // Strategy 6: <source> tag inside <video>
-            val sourcePattern = Pattern.compile(
-                """<source[^>]+src=["']([^"']+)["'][^>]*type=["']video/[^"']*["']""",
-                Pattern.CASE_INSENSITIVE
-            )
-            val sourceMatcher = sourcePattern.matcher(html)
-            if (sourceMatcher.find()) {
-                val videoUrl = sourceMatcher.group(1)?.replace("\\u002F", "/")
-                if (!videoUrl.isNullOrBlank()) {
-                    val title = extractMetaContent(html, "og:title") ?: ""
-                    Log.d(TAG, "Pinterest: found via <source> tag")
-                    return TikTokVideoData(
-                        id = "", title = title, author = "Pinterest", authorId = "",
-                        thumbnail = "", duration = 0L,
-                        videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
-                    )
+            // Strategy 4: CDN URL pattern (.mp4 or .m3u8 → convert)
+            if (result == null) {
+                val cdnPattern = Pattern.compile(
+                    """https?://(?:v1\.pinimg\.com|i\.pinimg\.com|s-media)[^"'\s<>]*\.(?:mp4|m3u8)[^"'\s<>]*""",
+                    Pattern.CASE_INSENSITIVE
+                )
+                val cdnMatcher = cdnPattern.matcher(html)
+                if (cdnMatcher.find()) {
+                    var videoUrl = cdnMatcher.group()?.replace("\\u002F", "/")
+                    if (!videoUrl.isNullOrBlank()) {
+                        if (videoUrl.endsWith(".m3u8", ignoreCase = true)) {
+                            videoUrl = convertPinUrl(videoUrl)
+                        }
+                        val title = extractMetaContent(html, "og:title") ?: ""
+                        result = TikTokVideoData(
+                            id = "", title = title, author = "Pinterest", authorId = "",
+                            thumbnail = "", duration = 0L,
+                            videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
+                        )
+                    }
                 }
             }
 
-            Log.w(TAG, "Pinterest: no video found")
-            return null
+            // Strategy 5: Pinterest internal relay data JSON (proper brace matching)
+            if (result == null) {
+                val relayPrefix = "__PWS_RELAY_REGISTER_COMPLETED_REQUEST__"
+                var searchFrom = 0
+                val rootMapType = Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
+                val adapter = moshi.adapter<Map<String, Any?>>(rootMapType)
+                while (result == null && searchFrom < html.length) {
+                    val idx = html.indexOf(relayPrefix, searchFrom)
+                    if (idx < 0) break
+                    val parenOpen = html.indexOf('(', idx)
+                    if (parenOpen < 0) break
+                    val firstComma = html.indexOf(',', parenOpen)
+                    if (firstComma < 0) break
+                    val jsonStart = html.indexOf('{', firstComma)
+                    if (jsonStart < 0) break
+                    // Count braces to find matching close
+                    var depth = 0; var jsonEnd = -1
+                    var inString = false; var escapeNext = false
+                    for (i in jsonStart until html.length) {
+                        val c = html[i]
+                        if (escapeNext) { escapeNext = false; continue }
+                        if (c == '\\') { escapeNext = true; continue }
+                        if (c == '"') { inString = !inString; continue }
+                        if (inString) continue
+                        if (c == '{') depth++
+                        else if (c == '}') { depth--; if (depth == 0) { jsonEnd = i; break } }
+                    }
+                    if (jsonEnd < 0) break
+                    searchFrom = jsonEnd + 1
+                    try {
+                        val jsonStr = html.substring(jsonStart, jsonEnd + 1)
+                        val data = adapter.fromJson(jsonStr) ?: continue
+                        // Walk JSON tree to find any pinimg.com video URL
+                        val foundUrl = findVideoUrlInJson(data, "")
+                        if (foundUrl != null) {
+                            val finalUrl = if (foundUrl.endsWith(".m3u8", ignoreCase = true))
+                                convertPinUrl(foundUrl) else foundUrl
+                            val title = extractMetaContent(html, "og:title") ?: ""
+                            Log.d(TAG, "Pinterest: found via relay JSON")
+                            result = TikTokVideoData(
+                                id = "", title = title, author = "Pinterest", authorId = "",
+                                thumbnail = "", duration = 0L,
+                                videoUrl = finalUrl, videoUrlNoWatermark = null, audioUrl = null
+                            )
+                        }
+                    } catch (_: Exception) { }
+                }
+            }
+
+            // Strategy 6: JSON-LD VideoObject
+            if (result == null) {
+                val jsonLdResult = extractFromJsonLd(html)
+                if (jsonLdResult != null) {
+                    var videoUrl = jsonLdResult.videoUrl
+                    if (!videoUrl.isNullOrBlank() && videoUrl.endsWith(".m3u8", ignoreCase = true)) {
+                        videoUrl = convertPinUrl(videoUrl)
+                    }
+                    result = jsonLdResult.copy(videoUrl = videoUrl)
+                }
+            }
+
+            // Strategy 7: <video> tag
+            if (result == null) {
+                val videoTagResult = extractFromVideoTag(html)
+                if (videoTagResult != null) {
+                    var videoUrl = videoTagResult.videoUrl
+                    if (!videoUrl.isNullOrBlank() && videoUrl.endsWith(".m3u8", ignoreCase = true)) {
+                        videoUrl = convertPinUrl(videoUrl)
+                    }
+                    result = videoTagResult.copy(videoUrl = videoUrl)
+                }
+            }
+
+            // Strategy 8: <source> tag inside <video>
+            if (result == null) {
+                val sourcePattern = Pattern.compile(
+                    """<source[^>]+src=["']([^"']+)["'][^>]*type=["']video/[^"']*["']""",
+                    Pattern.CASE_INSENSITIVE
+                )
+                val sourceMatcher = sourcePattern.matcher(html)
+                if (sourceMatcher.find()) {
+                    var videoUrl = sourceMatcher.group(1)?.replace("\\u002F", "/")
+                    if (!videoUrl.isNullOrBlank()) {
+                        if (videoUrl.endsWith(".m3u8", ignoreCase = true)) {
+                            videoUrl = convertPinUrl(videoUrl)
+                        }
+                        val title = extractMetaContent(html, "og:title") ?: ""
+                        result = TikTokVideoData(
+                            id = "", title = title, author = "Pinterest", authorId = "",
+                            thumbnail = "", duration = 0L,
+                            videoUrl = videoUrl, videoUrlNoWatermark = null, audioUrl = null
+                        )
+                    }
+                }
+            }
+
+            if (result != null) Log.d(TAG, "Pinterest extraction succeeded")
+            else Log.w(TAG, "Pinterest: no video found")
+            return result
         } catch (e: Exception) {
             Log.w(TAG, "extractPinterest failed", e)
             return null
         }
+    }
+
+    // ── Resolve .m3u8 playlist to a direct .ts segment ─────────────
+
+    private fun resolveM3u8Url(m3u8Url: String): String {
+        if (!m3u8Url.endsWith(".m3u8", ignoreCase = true)) return m3u8Url
+        try {
+            val client = OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
+            val request = Request.Builder().url(m3u8Url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return m3u8Url
+            val body = response.body?.string() ?: return m3u8Url
+            val baseUrl = m3u8Url.substringBeforeLast('/')
+
+            // Case 1: Master playlist — find highest bandwidth variant
+            val streamInfPattern = Pattern.compile(
+                """#EXT-X-STREAM-INF[^#]*BANDWIDTH=(\d+)[^\n]*\n\s*(\S+)""",
+                Pattern.CASE_INSENSITIVE
+            )
+            val streamInfMatcher = streamInfPattern.matcher(body)
+            var bestBandwidth = -1L
+            var bestVariant: String? = null
+            while (streamInfMatcher.find()) {
+                val bw = streamInfMatcher.group(1)?.toLongOrNull() ?: 0L
+                val variant = streamInfMatcher.group(2)?.trim() ?: continue
+                if (bw > bestBandwidth) {
+                    bestBandwidth = bw
+                    bestVariant = variant
+                }
+            }
+            if (bestVariant != null) {
+                val variantUrl = if (bestVariant.startsWith("http")) bestVariant else "$baseUrl/$bestVariant"
+                return resolveM3u8ToSegments(variantUrl, baseUrl)
+            }
+
+            // Case 2: Media playlist — extract .ts segments
+            return resolveM3u8ToSegments(m3u8Url, baseUrl)
+        } catch (e: Exception) {
+            Log.w(TAG, "resolveM3u8Url failed", e)
+            return m3u8Url
+        }
+    }
+
+    private fun resolveM3u8ToSegments(playlistUrl: String, baseUrl: String): String {
+        try {
+            val client = OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
+            val request = Request.Builder().url(playlistUrl)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .build()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return playlistUrl
+            val body = response.body?.string() ?: return playlistUrl
+
+            // Extract the last .ts segment (usually the highest quality)
+            val lines = body.lines()
+            var lastTs: String? = null
+            for (line in lines) {
+                val trimmed = line.trim()
+                if (trimmed.endsWith(".ts", ignoreCase = true)) {
+                    lastTs = trimmed
+                }
+            }
+            if (lastTs != null) {
+                return if (lastTs.startsWith("http")) lastTs else "${playlistUrl.substringBeforeLast('/')}/$lastTs"
+            }
+            return playlistUrl
+        } catch (e: Exception) {
+            Log.w(TAG, "resolveM3u8ToSegments failed", e)
+            return playlistUrl
+        }
+    }
+
+    // ── Recursively search JSON tree for video URLs ─────────────────
+
+    private fun findVideoUrlInJson(data: Any?, path: String): String? {
+        when (data) {
+            is Map<*, *> -> {
+                for ((key, value) in data) {
+                    val keyStr = key?.toString() ?: continue
+                    val newPath = if (path.isEmpty()) keyStr else "$path.$keyStr"
+                    // Check string values directly
+                    if (value is String) {
+                        if ((value.contains(".mp4") || value.contains(".m3u8")) &&
+                            (value.startsWith("http://") || value.startsWith("https://"))) {
+                            return value
+                        }
+                    } else {
+                        val found = findVideoUrlInJson(value, newPath)
+                        if (found != null) return found
+                    }
+                }
+            }
+            is List<*> -> {
+                for ((index, item) in data.withIndex()) {
+                    val found = findVideoUrlInJson(item, "$path[$index]")
+                    if (found != null) return found
+                }
+            }
+        }
+        return null
     }
 
     // ── SoundCloud extraction ───────────────────────────────────────
