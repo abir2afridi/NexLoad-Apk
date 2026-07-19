@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import android.content.Intent
 import android.net.Uri
 import android.view.ViewGroup
@@ -81,6 +82,10 @@ fun BrowserTab(viewModel: MainViewModel) {
     var showMediaSheet by remember { mutableStateOf(false) }
     var showHistorySheet by remember { mutableStateOf(false) }
     var showTabGallerySheet by remember { mutableStateOf(false) }
+    // Back gesture: navigate website history back, then fall through to app Home
+    BackHandler(enabled = webViewInstance?.canGoBack() == true) {
+        webViewInstance?.goBack()
+    }
     // WebView instances per tab (one WebView per tab ID)
     val webViewInstances = remember { mutableMapOf<String, WebView>() }
 
