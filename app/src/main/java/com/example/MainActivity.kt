@@ -1,11 +1,22 @@
 package com.example
 
+import android.Manifest
+import android.app.AlertDialog
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
@@ -51,12 +62,33 @@ import com.example.data.download.InstagramCookieStore
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
+    private val storagePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (Environment.isExternalStorageManager()) {
+                viewModel.tryMigrateToPublicStorage()
+                Toast.makeText(this, "File access granted!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "File access denied. App will use internal storage.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
+
         // Initialize cookie store
         InstagramCookieStore.init(this)
+
+        // If already has MANAGE_EXTERNAL_STORAGE on Android 11+, attempt public directory
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
+            viewModel.tryMigrateToPublicStorage()
+            requestStoragePermission()
+        } else {
+            requestStoragePermission()
+        }
         
         setContent {
             val isAmoledMode by viewModel.isAmoledMode.collectAsState()
@@ -230,6 +262,44 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
+            viewModel.tryMigrateToPublicStorage()
+        }
+    }
+
+    private fun requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                showStoragePermissionDialog()
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 1001)
+            }
+        }
+    }
+
+    private fun showStoragePermissionDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("File Access Required")
+            .setMessage("NexLoad needs access to your device storage to save downloads to your Downloads folder.\n\nPlease enable \"Allow management of all files\" on the next screen.")
+            .setPositiveButton("Enable") { _, _ ->
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                storagePermissionLauncher.launch(intent)
+            }
+            .setNegativeButton("Use Internal Storage") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
     }
 }
 

@@ -128,8 +128,12 @@ object DownloadEngine {
         val dao = db.downloadDao()
 
         val file = File(download.filepath)
-        // Ensure parent directory exists
-        file.parentFile?.mkdirs()
+        val parentDir = file.parentFile
+        if (parentDir != null && !parentDir.exists() && !parentDir.mkdirs()) {
+            Log.e(TAG, "Failed to create download directory: ${parentDir.absolutePath}")
+            dao.updateDownload(download.copy(status = "FAILED", errorMessage = "Cannot create download directory"))
+            return@withContext
+        }
 
         // 1. Initial HEAD or quick GET request to inspect the headers
         val checkRequest = Request.Builder()

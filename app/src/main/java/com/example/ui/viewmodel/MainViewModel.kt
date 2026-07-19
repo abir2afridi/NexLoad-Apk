@@ -84,8 +84,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isForceDarkWeb = MutableStateFlow(settingsPrefs.getBoolean("force_dark_web", false))
     val downloadFolderPath = MutableStateFlow(
         settingsPrefs.getString("download_path", null)
-            ?: (application.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.absolutePath
-                ?: (application.filesDir.absolutePath + "/NexLoad"))
+            ?: defaultDownloadPath(application)
     )
 
     // ─── Time Settings ───────────────────────────────────────────────────────
@@ -578,5 +577,65 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         vaultPin.value = null
         pinHint.value = null
         isVaultLocked.value = true
+    }
+
+    private fun defaultDownloadPath(app: Application): String {
+        val appName = getAppName(app)
+        return tryCreatePublicDownloadDir(app, appName)
+            ?: tryCreateExternalFilesDir(app)
+            ?: (app.filesDir.absolutePath + "/$appName")
+    }
+
+    private fun getAppName(app: Application): String {
+        return try {
+            app.packageManager.getApplicationLabel(app.applicationInfo).toString()
+        } catch (e: Exception) {
+            "NexLoad"
+        }
+    }
+
+    private fun tryCreatePublicDownloadDir(app: Application, appName: String): String? {
+        return try {
+            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val appDir = File(dir, appName)
+            if (appDir.mkdirs() || appDir.exists()) {
+                Log.d(TAG, "Download directory created: ${appDir.absolutePath}")
+                appDir.absolutePath
+            } else {
+                Log.w(TAG, "Failed to create public download directory, will use fallback")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating public download directory", e)
+            null
+        }
+    }
+
+    private fun tryCreateExternalFilesDir(app: Application): String? {
+        return try {
+            val dir = app.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+            dir?.let {
+                it.mkdirs()
+                if (it.exists()) {
+                    Log.d(TAG, "Fallback download directory: ${it.absolutePath}")
+                    it.absolutePath
+                } else null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating fallback download directory", e)
+            null
+        }
+    }
+
+    fun tryMigrateToPublicStorage() {
+        val app = getApplication<Application>()
+        val currentPath = downloadFolderPath.value
+        val appName = getAppName(app)
+
+        val publicPath = tryCreatePublicDownloadDir(app, appName)
+        if (publicPath != null && currentPath != publicPath) {
+            Log.d(TAG, "Migrating download path from $currentPath to $publicPath")
+            downloadFolderPath.value = publicPath
+        }
     }
 }

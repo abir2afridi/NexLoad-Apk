@@ -791,13 +791,16 @@ fun DashboardTab(
                                 }
                             }
 
-                            // Analyze button — show when there's text and no results yet
-                            if (linkText.isNotBlank() && tiktokInfo == null && !isFetching) {
+                            // Analyze button — always visible, dimmed when no link
+                            if (tiktokInfo == null && !isFetching) {
+                                val hasLink = linkText.isNotBlank()
                                 Surface(
-                                    onClick = { analyzeRequested = true },
+                                    onClick = { if (hasLink) analyzeRequested = true },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = if (hasLink) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                                    border = if (!hasLink) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)) else null
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(12.dp),
@@ -808,13 +811,15 @@ fun DashboardTab(
                                             imageVector = Icons.Default.Search,
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp),
-                                            tint = MaterialTheme.colorScheme.onPrimary
+                                            tint = if (hasLink) MaterialTheme.colorScheme.onPrimary
+                                                  else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = "Analyze",
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.onPrimary
+                                            color = if (hasLink) MaterialTheme.colorScheme.onPrimary
+                                                   else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
                                         )
                                     }
                                 }
