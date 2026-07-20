@@ -11,6 +11,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +48,7 @@ import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
 import com.example.data.download.VideoExtractor
+import com.example.R
 import com.example.ui.components.DownloadHealthIndicators
 import com.example.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.Dispatchers
@@ -281,23 +284,33 @@ fun DashboardTab(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(
-                        text = "NEXLOAD",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 2.5.sp,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.nexload_logo),
+                                contentDescription = "NexLoad",
+                                modifier = Modifier.width(40.dp).height(32.dp)
+                            )
+                            Text(
+                                text = "NEXLOAD",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 2.5.sp,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = greeting,
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = (-1).sp,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
                         )
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = greeting,
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = (-1).sp,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    )
                 }
 
                 Row(
