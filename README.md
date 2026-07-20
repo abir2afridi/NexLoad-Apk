@@ -1,5 +1,9 @@
 # NexLoad — Smart Video Downloader
 
+<p align="center">
+  <img src="app/NexLoad.png" alt="NexLoad Logo" width="192">
+</p>
+
 [![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/abir2afridi/NexLoad/releases/tag/v1.1.0)
 [![Release](https://img.shields.io/github/release/abir2afridi/NexLoad.svg)](https://github.com/abir2afridi/NexLoad/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
