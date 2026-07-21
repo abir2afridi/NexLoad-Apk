@@ -182,7 +182,8 @@ fun BrowserHomeScreen(
             columns = GridCells.Fixed(4),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             items(DEFAULT_SPEED_DIAL) { site ->
                 SpeedDialItem(

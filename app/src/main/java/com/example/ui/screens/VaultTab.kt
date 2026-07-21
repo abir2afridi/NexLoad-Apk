@@ -629,6 +629,7 @@ private fun SetupVaultContent(
         Button(onClick = onSetup, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("setup_vault_button")) {
             Text("Initialize Secure Vault")
         }
+        Spacer(modifier = Modifier.height(120.dp))
     }
 }
 
@@ -648,7 +649,10 @@ private fun LockedVaultContent(
     onForgotPin: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -710,6 +714,7 @@ private fun LockedVaultContent(
         TextButton(onClick = onForgotPin) {
             Text("Forgot ${if (lockType == "pattern") "Pattern" else "PIN"}?", color = MaterialTheme.colorScheme.error)
         }
+        Spacer(modifier = Modifier.height(120.dp))
     }
 }
 
@@ -768,7 +773,8 @@ private fun VaultHomeContent(
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             items(VAULT_CATEGORIES) { category ->
                 val count = items.count { it.category == category.key }
@@ -862,7 +868,8 @@ private fun VaultCategoryContent(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 items(items, key = { it.id }) { item ->
                     val isSelected = item.id in selectedIds

@@ -557,7 +557,7 @@ private fun DownloadsContent(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 100.dp)
+                contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 if (activeQueue.isNotEmpty()) {
                     item {
@@ -727,7 +727,7 @@ private fun FilesContent(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
-                contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
+                contentPadding = PaddingValues(bottom = 120.dp, top = 8.dp)
             ) {
                 items(filteredFiles, key = { it.id }) { item ->
                     val file = File(item.filepath)
