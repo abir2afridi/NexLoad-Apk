@@ -971,6 +971,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                                             try {
                                                 for (item in mediaItems) {
                                                     try {
+                                                        var resolvedHeaders: Map<String, String>? = null
                                                         val resolved = withContext(Dispatchers.IO) {
                                                             if (isDirectMediaUrl(item.url)) {
                                                                 item.url
@@ -982,10 +983,11 @@ fun BrowserTab(viewModel: MainViewModel) {
                                                                     null
                                                                 }
                                                                 val data = result?.getOrNull()
+                                                                resolvedHeaders = data?.httpHeaders
                                                                 data?.videoUrlNoWatermark ?: data?.videoUrl ?: item.url
                                                             }
                                                         }
-                                                        viewModel.addDownload(resolved, item.title)
+                                                        viewModel.addDownload(resolved, item.title, customHeaders = resolvedHeaders)
                                                         successCount++
                                                     } catch (e: kotlinx.coroutines.CancellationException) {
                                                         throw e
@@ -1139,6 +1141,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                                                 viewModel.viewModelScope.launch {
                                                     var success = false
                                                     try {
+                                                        var resolvedHeaders: Map<String, String>? = null
                                                         val resolved = withContext(Dispatchers.IO) {
                                                             if (isDirectMediaUrl(media.url)) {
                                                                 media.url
@@ -1150,10 +1153,11 @@ fun BrowserTab(viewModel: MainViewModel) {
                                                                     null
                                                                 }
                                                                 val data = result?.getOrNull()
+                                                                resolvedHeaders = data?.httpHeaders
                                                                 data?.audioUrl ?: data?.videoUrlNoWatermark ?: data?.videoUrl ?: media.url
                                                             }
                                                         }
-                                                        viewModel.addDownload(resolved, media.title, isAudioOnly = true)
+                                                        viewModel.addDownload(resolved, media.title, isAudioOnly = true, customHeaders = resolvedHeaders)
                                                         success = true
                                                     } catch (e: kotlinx.coroutines.CancellationException) {
                                                         throw e

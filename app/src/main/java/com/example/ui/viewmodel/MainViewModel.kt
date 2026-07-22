@@ -535,7 +535,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         threads: Int = 4,
         isPrivate: Boolean = false,
         quality: String = "Auto",
-        isAudioOnly: Boolean = false
+        isAudioOnly: Boolean = false,
+        customHeaders: Map<String, String>? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -549,13 +550,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 targetDir.mkdirs()
                 val filepath = File(targetDir, filename).absolutePath
+                val headersJson = if (customHeaders != null && customHeaders.isNotEmpty()) {
+                    try {
+                        val obj = org.json.JSONObject()
+                        customHeaders.forEach { (k, v) -> obj.put(k, v) }
+                        obj.toString()
+                    } catch (_: Exception) { null }
+                } else null
                 val download = DownloadEntity(
                     url = url, title = suggestedTitle, filename = filename,
                     filepath = filepath,
                     mimeType = if (isAudioOnly) "audio/mpeg" else "video/mp4",
                     category = category, status = "QUEUED",
                     totalBytes = 0L, downloadedBytes = 0L,
-                    isPrivate = isPrivate, threads = threads, quality = quality
+                    isPrivate = isPrivate, threads = threads, quality = quality,
+                    customHeaders = headersJson
                 )
                 val downloadId = dao.insertDownload(download).toInt()
                 DownloadEngine.startDownload(getApplication(), downloadId)

@@ -30,8 +30,9 @@ internal object YtDlpExtractor {
             val thumbnail = videoInfo.thumbnail ?: ""
             val duration = videoInfo.duration.toLong()
             val id = videoInfo.id ?: ""
+            val headers = videoInfo.httpHeaders
 
-            Log.d(TAG, "yt-dlp success: $title by $author")
+            Log.d(TAG, "yt-dlp success: $title by $author, hasHeaders=${headers != null}")
 
             TikTokVideoData(
                 id = id,
@@ -42,7 +43,8 @@ internal object YtDlpExtractor {
                 duration = duration,
                 videoUrl = videoUrl,
                 videoUrlNoWatermark = videoUrl,
-                audioUrl = null
+                audioUrl = null,
+                httpHeaders = headers
             )
         } catch (e: InterruptedException) {
             Log.w(TAG, "yt-dlp extraction interrupted", e)

@@ -10,6 +10,7 @@ import com.example.data.database.DownloadEntity
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 import java.io.File
 import java.io.RandomAccessFile
 import java.util.concurrent.ConcurrentHashMap
@@ -21,6 +22,17 @@ object DownloadEngine {
     @Volatile
     var lastPageUrl: String = ""
     private val activeJobs = ConcurrentHashMap<Int, Job>()
+
+    private fun parseCustomHeaders(json: String?): Map<String, String> {
+        if (json.isNullOrBlank()) return emptyMap()
+        return try {
+            val obj = JSONObject(json)
+            val map = mutableMapOf<String, String>()
+            obj.keys().forEach { key -> map[key] = obj.getString(key) }
+            map
+        } catch (_: Exception) { emptyMap() }
+    }
+
     private val scope by lazy {
         CoroutineScope(Dispatchers.IO + SupervisorJob() + CoroutineExceptionHandler { _, t ->
             Log.e(TAG, "Uncaught coroutine exception in DownloadEngine", t)
@@ -159,10 +171,12 @@ object DownloadEngine {
         }
 
         // 1. Initial HEAD or quick GET request to inspect the headers
-        val checkRequest = Request.Builder()
+        val parsedHeaders = parseCustomHeaders(download.customHeaders)
+        val checkRequestBuilder = Request.Builder()
             .url(download.url)
             .header("Range", "bytes=0-0")
-            .build()
+        parsedHeaders.forEach { (k, v) -> checkRequestBuilder.header(k, v) }
+        val checkRequest = checkRequestBuilder.build()
 
         var totalLength = download.totalBytes
         var acceptRanges = false
@@ -255,6 +269,7 @@ object DownloadEngine {
         if (existingBytes > 0 && totalLength > 0) {
             requestBuilder.header("Range", "bytes=$existingBytes-")
         }
+        parseCustomHeaders(download.customHeaders).forEach { (k, v) -> requestBuilder.header(k, v) }
         
         val request = requestBuilder.build()
         
@@ -349,6 +364,7 @@ object DownloadEngine {
         val numThreads = download.threads
         val chunkSize = totalLength / numThreads
         val downloadedAccumulator = AtomicLong(0L)
+        val parsedHeaders = parseCustomHeaders(download.customHeaders)
 
         val speedTracker = AtomicLong(0L)
         val speedJob = launch {
@@ -377,7 +393,7 @@ object DownloadEngine {
                 val end = if (index == numThreads - 1) totalLength - 1 else (index + 1) * chunkSize - 1
                 
                 launch(Dispatchers.IO) {
-                    downloadPart(download.url, file, start, end, downloadedAccumulator, speedTracker)
+                    downloadPart(download.url, file, start, end, downloadedAccumulator, speedTracker, parsedHeaders)
                 }
             }
             
@@ -409,12 +425,14 @@ object DownloadEngine {
         start: Long,
         end: Long,
         totalProgress: AtomicLong,
-        speedTracker: AtomicLong
+        speedTracker: AtomicLong,
+        headers: Map<String, String> = emptyMap()
     ) {
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url(url)
             .header("Range", "bytes=$start-$end")
-            .build()
+        headers.forEach { (k, v) -> requestBuilder.header(k, v) }
+        val request = requestBuilder.build()
 
         client.newCall(request).execute().use { response ->
             if (response.code != 206 && response.code != 200) {

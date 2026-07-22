@@ -23,7 +23,8 @@ data class DownloadEntity(
     val quality: String? = "Auto",
     val integrityStatus: String? = "PENDING", // "OK", "MISSING", "CORRUPTED", "PENDING"
     val connectionHealth: String? = "PENDING", // "EXCELLENT", "GOOD", "POOR", "UNREACHABLE", "PENDING"
-    val lastCheckedTime: Long = 0L
+    val lastCheckedTime: Long = 0L,
+    val customHeaders: String? = null // JSON map of headers for sites requiring auth (Facebook, etc.)
 )
 
 @Entity(tableName = "bookmarks")

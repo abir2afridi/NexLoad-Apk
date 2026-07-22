@@ -181,7 +181,8 @@ fun DownloadDialog(
                                             url = downloadUrl,
                                             suggestedTitle = currentState.info.title.ifBlank { "Video" },
                                             quality = if (selectedQuality == 0) "Auto" else "HD",
-                                            isAudioOnly = isAudioOnly
+                                            isAudioOnly = isAudioOnly,
+                                            customHeaders = currentState.info.httpHeaders
                                         )
                                         onDismiss()
                                         Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show()
