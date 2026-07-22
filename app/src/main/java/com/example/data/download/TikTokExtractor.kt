@@ -8,27 +8,48 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
+private fun fixTikTokUrl(urlStr: String?): String? {
+    if (urlStr.isNullOrBlank()) return null
+    val trimmed = urlStr.trim()
+    return when {
+        trimmed.startsWith("//") -> "https:$trimmed"
+        trimmed.startsWith("/") -> "https://www.tikwm.com$trimmed"
+        trimmed.startsWith("http://") -> trimmed.replace("http://", "https://")
+        else -> trimmed
+    }
+}
+
 internal fun extractTikTok(url: String): TikTokVideoData? {
-    val tikwmResult = extractFromTikwm(url)
+    val resolvedUrl = resolveRedirect(url) ?: url
+    Log.d(EXTRACTOR_TAG, "TikTok extracting: $url (resolved: $resolvedUrl)")
+
+    val tikwmResult = extractFromTikwm(resolvedUrl) ?: extractFromTikwm(url)
     if (tikwmResult != null) {
         Log.d(EXTRACTOR_TAG, "Success via TikWM API: ${tikwmResult.title}")
         return tikwmResult
     }
 
-    val resolvedUrl = resolveRedirect(url)
-    val itemId = extractItemId(resolvedUrl ?: url)
-        ?: extractItemIdFromHtml(url)
-    if (itemId == null) return null
-
-    Log.d(EXTRACTOR_TAG, "Extracting TikTok video ID: $itemId")
-
-    val mobileResult = extractFromMobileApi(itemId)
-    if (mobileResult != null) {
-        Log.d(EXTRACTOR_TAG, "Success via Mobile API: ${mobileResult.title}")
-        return mobileResult
+    val ssstikResult = extractFromSsstik(resolvedUrl) ?: extractFromSsstik(url)
+    if (ssstikResult != null) {
+        Log.d(EXTRACTOR_TAG, "Success via SSSTik API: ${ssstikResult.title}")
+        return ssstikResult
     }
 
-    val html = fetchPageHtml(resolvedUrl ?: url)
+    val itemId = extractItemId(resolvedUrl)
+        ?: extractItemId(url)
+        ?: extractItemIdFromHtml(resolvedUrl)
+        ?: extractItemIdFromHtml(url)
+
+    if (itemId != null) {
+        Log.d(EXTRACTOR_TAG, "Extracting TikTok video ID: $itemId")
+        val mobileResult = extractFromMobileApi(itemId)
+        if (mobileResult != null) {
+            Log.d(EXTRACTOR_TAG, "Success via Mobile API: ${mobileResult.title}")
+            return mobileResult
+        }
+    }
+
+    val html = fetchPageHtml(resolvedUrl) ?: fetchPageHtml(url)
     if (html != null) {
         val uniResult = extractFromUniversalData(html)
         if (uniResult != null) return uniResult
@@ -46,10 +67,12 @@ internal fun extractTikTok(url: String): TikTokVideoData? {
         if (videoTagResult != null) return videoTagResult
     }
 
-    val oembedResult = extractFromOembed(itemId)
-    if (oembedResult != null) {
-        Log.d(EXTRACTOR_TAG, "Success via oEmbed: ${oembedResult.title}")
-        return oembedResult
+    if (itemId != null) {
+        val oembedResult = extractFromOembed(itemId)
+        if (oembedResult != null) {
+            Log.d(EXTRACTOR_TAG, "Success via oEmbed: ${oembedResult.title}")
+            return oembedResult
+        }
     }
 
     return null
@@ -77,51 +100,115 @@ private fun extractFromTikwm(url: String): TikTokVideoData? {
             .header("Accept-Language", "en-US,en;q=0.9")
             .build()
 
-        tikwmClient.newCall(request).execute().use { response ->
-            val jsonStr = response.body?.string() ?: return null
-            Log.d(EXTRACTOR_TAG, "TikWM response length: ${jsonStr.length}")
-
-            val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
-            val root = adapter.fromJson(jsonStr) ?: return null
-
-            val code = (root["code"] as? Number)?.toInt() ?: -1
-            if (code != 0) {
-                Log.w(EXTRACTOR_TAG, "TikWM API error code: $code, msg: ${root["msg"]}")
-                return null
+        var jsonStr: String? = null
+        try {
+            tikwmClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    jsonStr = response.body?.string()
+                }
             }
+        } catch (_: Exception) {}
 
-            val data = root["data"] as? Map<*, *> ?: return null
-
-            val videoId = data["id"]?.toString() ?: ""
-            val title = data["title"]?.toString() ?: ""
-            val duration = (data["duration"] as? Number)?.toLong() ?: 0L
-            val thumbnail = data["cover"]?.toString() ?: ""
-
-            val authorMap = data["author"] as? Map<*, *>
-            val author = authorMap?.get("nickname")?.toString() ?: ""
-            val authorId = authorMap?.get("unique_id")?.toString() ?: ""
-
-            val videoUrlHd = data["hdplay"]?.toString()?.ifBlank { null }
-            val videoUrlSd = data["play"]?.toString()?.ifBlank { null }
-            val videoUrlWatermarked = data["wmplay"]?.toString()?.ifBlank { null }
-            val videoUrlNoWatermark = videoUrlHd ?: videoUrlSd
-            val videoUrl = videoUrlWatermarked ?: videoUrlNoWatermark
-            val audioUrl = data["music"]?.toString()?.ifBlank { null }
-
-            Log.d(EXTRACTOR_TAG, "TikWM: id=$videoId, title=${title.take(40)}, hasHd=${videoUrlHd != null}, hasSd=${videoUrlSd != null}, hasWm=${videoUrlWatermarked != null}, hasAudio=${audioUrl != null}")
-
-            if (videoUrl.isNullOrBlank()) return null
-
-            return TikTokVideoData(
-                id = videoId, title = title, author = author, authorId = authorId,
-                thumbnail = thumbnail, duration = duration,
-                videoUrl = videoUrl, videoUrlNoWatermark = videoUrlNoWatermark, audioUrl = audioUrl
-            )
+        if (jsonStr.isNullOrBlank()) {
+            val getUrl = "https://www.tikwm.com/api/?url=${java.net.URLEncoder.encode(url, "UTF-8")}&hd=1"
+            val getRequest = Request.Builder()
+                .url(getUrl)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+                .header("Accept", "application/json")
+                .build()
+            try {
+                tikwmClient.newCall(getRequest).execute().use { response ->
+                    if (response.isSuccessful) {
+                        jsonStr = response.body?.string()
+                    }
+                }
+            } catch (_: Exception) {}
         }
+
+        if (jsonStr.isNullOrBlank()) return null
+
+        val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
+        val root = adapter.fromJson(jsonStr!!) ?: return null
+
+        val code = (root["code"] as? Number)?.toInt() ?: -1
+        if (code != 0) {
+            Log.w(EXTRACTOR_TAG, "TikWM API error code: $code, msg: ${root["msg"]}")
+            return null
+        }
+
+        val data = root["data"] as? Map<*, *> ?: return null
+
+        val videoId = data["id"]?.toString() ?: ""
+        val title = data["title"]?.toString() ?: ""
+        val duration = (data["duration"] as? Number)?.toLong() ?: 0L
+        val thumbnail = fixTikTokUrl(data["cover"]?.toString()) ?: ""
+
+        val authorMap = data["author"] as? Map<*, *>
+        val author = authorMap?.get("nickname")?.toString() ?: ""
+        val authorId = authorMap?.get("unique_id")?.toString() ?: ""
+
+        val videoUrlHd = fixTikTokUrl(data["hdplay"]?.toString())
+        val videoUrlSd = fixTikTokUrl(data["play"]?.toString())
+        val videoUrlWatermarked = fixTikTokUrl(data["wmplay"]?.toString())
+        val videoUrlNoWatermark = videoUrlHd ?: videoUrlSd
+        val videoUrl = videoUrlWatermarked ?: videoUrlNoWatermark
+        val audioUrl = fixTikTokUrl(data["music"]?.toString())
+
+        Log.d(EXTRACTOR_TAG, "TikWM: id=$videoId, title=${title.take(40)}, hasHd=${videoUrlHd != null}, hasSd=${videoUrlSd != null}")
+
+        if (videoUrl.isNullOrBlank()) return null
+
+        return TikTokVideoData(
+            id = videoId, title = title, author = author, authorId = authorId,
+            thumbnail = thumbnail, duration = duration,
+            videoUrl = videoUrl, videoUrlNoWatermark = videoUrlNoWatermark, audioUrl = audioUrl
+        )
     } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "extractFromTikwm failed", e)
         return null
     }
+}
+
+private fun extractFromSsstik(url: String): TikTokVideoData? {
+    try {
+        val formBody = FormBody.Builder()
+            .add("id", url)
+            .add("locale", "en")
+            .add("tt", "0")
+            .build()
+
+        val request = Request.Builder()
+            .url("https://ssstik.io/abc?url=dl")
+            .post(formBody)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+            .header("Accept", "*/*")
+            .header("HX-Request", "true")
+            .header("HX-Target", "target")
+            .header("HX-Current-URL", "https://ssstik.io/en")
+            .build()
+
+        extractorClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val html = response.body?.string() ?: return null
+            val videoMatch = Regex("""href=["'](https?://[^"'\s]+?(?:tiktokcdn|tikcdn|ssstik)[^"'\s]*?\.mp4[^"'\s]*)["']""", RegexOption.IGNORE_CASE).find(html)
+                ?: Regex("""href=["'](https?://[^"'\s]+?)["'][^>]*>Without watermark""", RegexOption.IGNORE_CASE).find(html)
+            val videoUrl = fixTikTokUrl(videoMatch?.groupValues?.get(1))
+            if (!videoUrl.isNullOrBlank()) {
+                val titleMatch = Regex("""<p class="maintext">([^<]+)</p>""").find(html)
+                val title = titleMatch?.groupValues?.get(1)?.trim() ?: ""
+                val authorMatch = Regex("""<h2>([^<]+)</h2>""").find(html)
+                val author = authorMatch?.groupValues?.get(1)?.trim() ?: ""
+                return TikTokVideoData(
+                    id = "", title = title, author = author, authorId = author,
+                    thumbnail = "", duration = 0L,
+                    videoUrl = videoUrl, videoUrlNoWatermark = videoUrl, audioUrl = null
+                )
+            }
+        }
+    } catch (e: Throwable) {
+        Log.w(EXTRACTOR_TAG, "extractFromSsstik failed", e)
+    }
+    return null
 }
 
 private fun extractFromMobileApi(itemId: String): TikTokVideoData? {
@@ -176,7 +263,7 @@ internal fun parseAweme(aweme: Map<*, *>): TikTokVideoData? {
         val originCover = videoInfo["origin_cover"] as? Map<*, *>
         val coverUrls = (dynamicCover?.get("url_list") as? List<*>)?.filterIsInstance<String>()
             ?: (originCover?.get("url_list") as? List<*>)?.filterIsInstance<String>()
-        val thumbnail = coverUrls?.firstOrNull() ?: ""
+        val thumbnail = fixTikTokUrl(coverUrls?.firstOrNull()) ?: ""
 
         val videoUrl = extractFromBitrateInfo(videoInfo)
         val videoUrlNoWatermark = extractUrlFromAddr(videoInfo, "download_addr")
@@ -206,7 +293,7 @@ private fun extractUrlFromAddr(map: Map<*, *>, key: String): String? {
         for (urlObj in urlList) {
             val url = urlObj?.toString() ?: continue
             if (url.isNotBlank() && !url.contains("log.byteoversea.com")) {
-                return url.replace("https://", "http://")
+                return fixTikTokUrl(url)
             }
         }
     } catch (e: Exception) {
@@ -226,7 +313,7 @@ private fun extractFromBitrateInfo(videoInfo: Map<*, *>): String? {
                 for (urlObj in urlList) {
                     val url = urlObj?.toString() ?: continue
                     if (url.isNotBlank() && url.contains("http")) {
-                        return url.replace("https://", "http://")
+                        return fixTikTokUrl(url)
                     }
                 }
             }
@@ -425,8 +512,9 @@ private fun extractFromCdnUrlPattern(html: String): TikTokVideoData? {
         )
         val matcher = cdnPattern.matcher(html)
         if (matcher.find()) {
-            val videoUrl = matcher.group(1)?.replace("\\u002F", "/")?.replace("\\/", "/")
-                ?.replace("https://", "http://")
+            val videoUrl = fixTikTokUrl(
+                matcher.group(1)?.replace("\\u002F", "/")?.replace("\\/", "/")
+            )
             if (!videoUrl.isNullOrBlank()) {
                 return TikTokVideoData(
                     id = "", title = "", author = "", authorId = "",
@@ -443,12 +531,14 @@ private fun extractFromCdnUrlPattern(html: String): TikTokVideoData? {
 
 private fun extractTikTokFromMetaTags(html: String): TikTokVideoData? {
     try {
-        val ogVideoUrl = extractMetaContent(html, "og:video")
-            ?: extractMetaContent(html, "og:video:url")
-            ?: extractMetaContent(html, "og:video:secure_url")
+        val ogVideoUrl = fixTikTokUrl(
+            extractMetaContent(html, "og:video")
+                ?: extractMetaContent(html, "og:video:url")
+                ?: extractMetaContent(html, "og:video:secure_url")
+        )
         if (!ogVideoUrl.isNullOrBlank()) {
             val title = extractMetaContent(html, "og:title") ?: ""
-            val thumbnail = extractMetaContent(html, "og:image") ?: ""
+            val thumbnail = fixTikTokUrl(extractMetaContent(html, "og:image")) ?: ""
             return TikTokVideoData(
                 id = "", title = title, author = "", authorId = "",
                 thumbnail = thumbnail, duration = 0L,
@@ -480,13 +570,15 @@ private fun extractFromJsonLd(html: String): TikTokVideoData? {
                 val name = data["name"]?.toString() ?: ""
                 val description = data["description"]?.toString() ?: ""
                 val title = name.ifBlank { description }
-                val thumbnail = (data["thumbnailUrl"] as? List<*>)?.firstOrNull()?.toString()
-                    ?: data["thumbnail"]?.toString() ?: ""
+                val thumbnail = fixTikTokUrl(
+                    (data["thumbnailUrl"] as? List<*>)?.firstOrNull()?.toString()
+                        ?: data["thumbnail"]?.toString()
+                ) ?: ""
                 val durationRaw = data["duration"]?.toString() ?: ""
                 val duration = parseDuration(durationRaw)
 
-                val contentUrl = data["contentUrl"]?.toString()
-                val embedUrl = data["embedUrl"]?.toString()
+                val contentUrl = fixTikTokUrl(data["contentUrl"]?.toString())
+                val embedUrl = fixTikTokUrl(data["embedUrl"]?.toString())
                 val videoUrl = contentUrl ?: embedUrl
 
                 if (videoUrl.isNullOrBlank()) continue
@@ -509,7 +601,7 @@ private fun extractFromVideoTagTikTok(html: String): TikTokVideoData? {
         val pattern = Pattern.compile("""<video[^>]+src=["']([^"']+)["']""", Pattern.CASE_INSENSITIVE)
         val matcher = pattern.matcher(html)
         if (matcher.find()) {
-            val videoUrl = matcher.group(1)?.replace("https://", "http://")
+            val videoUrl = fixTikTokUrl(matcher.group(1))
             if (!videoUrl.isNullOrBlank()) {
                 return TikTokVideoData(
                     id = "", title = "", author = "", authorId = "",

@@ -117,6 +117,12 @@ object VideoExtractor {
                     Log.d(EXTRACTOR_TAG, "Success via TikTok extraction: ${tikResult.title}")
                     return Result.success(tikResult)
                 }
+                Log.w(EXTRACTOR_TAG, "Custom TikTok extraction failed, trying yt-dlp fallback")
+                val ytDlpResult = YtDlpExtractor.extract(url)
+                if (ytDlpResult != null) {
+                    Log.d(EXTRACTOR_TAG, "Success via yt-dlp for TikTok: ${ytDlpResult.title}")
+                    return Result.success(ytDlpResult)
+                }
                 return Result.failure(Exception("Could not extract TikTok video. All extraction strategies failed."))
             }
 

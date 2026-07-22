@@ -223,14 +223,24 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
 }
 
 fun resolveRedirect(url: String): String? {
-    if (!url.contains("vt.tiktok.com") && !url.contains("vm.tiktok.com")) return url
+    val isShortTikTok = url.contains("vt.tiktok.com") ||
+                        url.contains("vm.tiktok.com") ||
+                        url.contains("v.tiktok.com") ||
+                        url.contains("/t/") ||
+                        (url.contains("tiktok.com") && !url.contains("/video/") && !url.contains("/item/"))
+    if (!isShortTikTok) return url
     return try {
-        val request = Request.Builder().url(url).build()
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+            .build()
         extractorClient.newCall(request).execute().use { response ->
-            response.request.url.toString()
+            val redirectUrl = response.request.url.toString()
+            Log.d(EXTRACTOR_TAG, "Resolved redirect: $url -> $redirectUrl")
+            redirectUrl
         }
     } catch (e: Throwable) {
-        Log.w(EXTRACTOR_TAG, "Redirect resolution failed", e)
+        Log.w(EXTRACTOR_TAG, "Redirect resolution failed for $url", e)
         url
     }
 }

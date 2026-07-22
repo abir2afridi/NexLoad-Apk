@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.*
@@ -210,7 +211,7 @@ fun FormatSettingsScreen(
 
                     // Format sorting
                     FormatSwitchWithDetailRow(
-                        icon = Icons.AutoMirrored.Outlined.Sort,
+                        icon = Icons.AutoMirrored.Filled.Sort,
                         iconTint = Color(0xFF673AB7),
                         title = "Format sorting",
                         subtitle = if (formatSortingFields.isNotEmpty()) formatSortingFields

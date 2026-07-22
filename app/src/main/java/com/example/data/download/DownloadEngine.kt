@@ -58,7 +58,10 @@ object DownloadEngine {
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
                     .header("Accept", "*/*")
                     .header("Connection", "keep-alive")
-                if (originalUrl.contains("tiktokcdn.com") || originalUrl.contains("tiktok.com")) {
+                if (originalUrl.contains("tiktokcdn.com") || originalUrl.contains("tiktok.com") ||
+                    originalUrl.contains("byteoversea.com") || originalUrl.contains("ibyteimg.com") ||
+                    originalUrl.contains("tiktokv.com") || originalUrl.contains("musically.com") ||
+                    originalUrl.contains("tikwm.com") || originalUrl.contains("tikcdn.io")) {
                     requestBuilder.header("Referer", "https://www.tiktok.com/")
                 }
                 if (originalUrl.contains("fbcdn") || originalUrl.contains("facebook.com") || originalUrl.contains("scontent")) {
