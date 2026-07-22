@@ -1,9 +1,14 @@
 package com.example.ui.screens
 
+import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,6 +56,7 @@ import com.example.ui.theme.*
 import com.example.ui.viewmodel.MainViewModel
 import java.io.File
 
+@SuppressLint("BatteryLife")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsTab(
@@ -81,6 +87,31 @@ fun SettingsTab(
     var showContentScreen by remember { mutableStateOf(false) }
     var showHomepageScreen by remember { mutableStateOf(false) }
     var showLookAndFeelScreen by remember { mutableStateOf(false) }
+
+    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    var showBatteryHint by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                !pm.isIgnoringBatteryOptimizations(context.packageName)
+            } else {
+                false
+            }
+        )
+    }
+    val batteryIntent =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${context.packageName}")
+            }
+        } else {
+            Intent()
+        }
+    val batteryLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                showBatteryHint = !pm.isIgnoringBatteryOptimizations(context.packageName)
+            }
+        }
 
     BackHandler {
         when {
@@ -155,6 +186,63 @@ fun SettingsTab(
                     subtitle = "Theme mode, AMOLED, accent colors",
                     onClick = { showLookAndFeelScreen = true }
                 )
+            }
+
+            // Battery Configuration
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (!showBatteryHint)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                ),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            try {
+                                batteryLauncher.launch(batteryIntent)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    showBatteryHint = !pm.isIgnoringBatteryOptimizations(context.packageName)
+                                }
+                            } catch (_: Exception) { }
+                        }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (!showBatteryHint) Color(0xFF00897B).copy(alpha = 0.15f) else Color(0xFF43A047).copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (!showBatteryHint) Icons.Filled.BatteryChargingFull else Icons.Filled.EnergySavingsLeaf,
+                            contentDescription = null,
+                            tint = if (!showBatteryHint) Color(0xFF00897B) else Color(0xFF43A047),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Battery Optimization",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = if (showBatteryHint)
+                                "Tap to disable battery optimization for background downloads"
+                            else
+                                "Battery optimization is already disabled",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
+                    }
+                }
             }
 
             SettingsCard(
