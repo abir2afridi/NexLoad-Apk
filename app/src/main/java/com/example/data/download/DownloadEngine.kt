@@ -86,11 +86,11 @@ object DownloadEngine {
                 val currentDb = AppDatabase.getDatabase(context)
                 val currentDao = currentDb.downloadDao()
                 val currentDownload = currentDao.getDownloadById(downloadId)
-                if (currentDownload != null) {
+                if (currentDownload != null && currentDownload.errorMessage == null) {
                     currentDao.updateDownload(
                         currentDownload.copy(
                             status = "FAILED",
-                            errorMessage = e.localizedMessage ?: "Unknown network error"
+                            errorMessage = e.message ?: e.toString()
                         )
                     )
                 }
@@ -116,11 +116,11 @@ object DownloadEngine {
         } catch (e: Exception) {
             Log.e(TAG, "Error downloading $downloadId", e)
             val currentDownload = dao.getDownloadById(downloadId)
-            if (currentDownload != null) {
+            if (currentDownload != null && currentDownload.errorMessage == null) {
                 dao.updateDownload(
                     currentDownload.copy(
                         status = "FAILED",
-                        errorMessage = e.localizedMessage ?: "Unknown network error"
+                        errorMessage = e.message ?: e.toString()
                     )
                 )
             }
@@ -173,7 +173,13 @@ object DownloadEngine {
             return@withContext
         }
 
-        if (!download.sourceUrl.isNullOrBlank()) {
+        val isFacebookSource = download.sourceUrl?.let {
+            it.contains("facebook.com") || it.contains("fb.watch") || it.contains("fbcdn") || it.contains("scontent")
+        } ?: false
+
+        if (isFacebookSource && !download.url.isNullOrBlank() && !download.customHeaders.isNullOrBlank()) {
+            Log.d(TAG, "Facebook detected — using OkHttp direct download (yt-dlp execute() fails for FB)")
+        } else if (!download.sourceUrl.isNullOrBlank()) {
             ytDlpDownload(context, download)
             return@withContext
         }
@@ -430,18 +436,30 @@ object DownloadEngine {
     private suspend fun ytDlpDownload(
         context: Context,
         download: DownloadEntity
-    ) = withContext(Dispatchers.IO) {
+    ) = withContext(Dispatchers.IO + NonCancellable) {
         val db = AppDatabase.getDatabase(context)
         val dao = db.downloadDao()
         val file = File(download.filepath)
 
         dao.updateDownload(download.copy(status = "DOWNLOADING", errorMessage = null))
 
+        try {
+            YoutubeDL.getInstance().updateYoutubeDL(context)
+            Log.d(TAG, "yt-dlp updated to latest version")
+        } catch (e: Exception) {
+            Log.w(TAG, "yt-dlp update failed, using bundled version", e)
+        }
+
         val request = YoutubeDLRequest(download.sourceUrl!!)
-        request.addOption("-o", file.absolutePath)
+        val parentDir = file.parent ?: ""
+        val fileNameWithoutExt = file.nameWithoutExtension
+        request.addOption("-o", "$parentDir/$fileNameWithoutExt.%(ext)s")
         request.addOption("--no-warnings")
         request.addOption("--no-check-certificates")
         request.addOption("--no-playlist")
+        request.addOption("--user-agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+        request.addOption("--extractor-retries", "3")
+        request.addOption("--retries", "5")
 
         val lastProgress = AtomicLong(0L)
 
@@ -477,14 +495,27 @@ object DownloadEngine {
 
             progressJob.cancel()
 
-            MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), null, null)
+            val dirFile = File(parentDir)
+            val actualFile = if (dirFile.isDirectory) {
+                dirFile.listFiles()?.find { it.name.startsWith(fileNameWithoutExt) && it.lastModified() > System.currentTimeMillis() - 60000 }
+            } else null
+            val resolvedFile = actualFile ?: file
+            val targetFile = if (resolvedFile.exists() && resolvedFile.absolutePath != file.absolutePath) {
+                resolvedFile.renameTo(file)
+                file
+            } else {
+                resolvedFile
+            }
 
-            val finalSize = if (file.exists()) file.length() else 0L
+            MediaScannerConnection.scanFile(context, arrayOf(targetFile.absolutePath), null, null)
+
+            val finalSize = if (targetFile.exists()) targetFile.length() else 0L
             dao.updateDownload(
                 download.copy(
                     status = "COMPLETED",
                     totalBytes = finalSize,
                     downloadedBytes = finalSize,
+                    filepath = targetFile.absolutePath,
                     speed = 0
                 )
             )
@@ -492,13 +523,22 @@ object DownloadEngine {
         } catch (e: kotlinx.coroutines.CancellationException) {
             progressJob.cancel()
             throw e
+        } catch (e: InterruptedException) {
+            progressJob.cancel()
+            Thread.currentThread().interrupt()
+            throw e
         } catch (e: Exception) {
             progressJob.cancel()
             Log.e(TAG, "yt-dlp download failed", e)
+            val errorMsg = e.message
+                ?: e.cause?.message
+                ?: e.cause?.cause?.message
+                ?: e.toString()
+            Log.e(TAG, "Full error: $errorMsg")
             dao.updateDownload(
                 download.copy(
                     status = "FAILED",
-                    errorMessage = e.localizedMessage ?: "yt-dlp download failed"
+                    errorMessage = "yt-dlp error: $errorMsg"
                 )
             )
         }

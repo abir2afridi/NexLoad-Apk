@@ -48,6 +48,8 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
+import com.example.data.download.TikTokVideoData
+import com.example.data.download.VideoExtractor
 
 import com.example.R
 import com.example.ui.components.DownloadHealthIndicators
@@ -189,9 +191,13 @@ fun DashboardTab(
         0
     }
 
-    var showPasteLinkDialog by remember { mutableStateOf(false) }
-    var downloadDialogUrl by remember { mutableStateOf("") }
     var isOptimizing by remember { mutableStateOf(false) }
+
+    var extractedVideoInfo by remember { mutableStateOf<TikTokVideoData?>(null) }
+    var isExtracting by remember { mutableStateOf(false) }
+    var extractionError by remember { mutableStateOf<String?>(null) }
+    var selectedDownloadType by remember { mutableIntStateOf(0) }
+    var isDownloadingFromStream by remember { mutableStateOf(false) }
 
     // Storage stats
     val storageStats = remember(downloads) {
@@ -636,7 +642,6 @@ fun DashboardTab(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Input field — ALWAYS visible
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
@@ -733,40 +738,269 @@ fun DashboardTab(
                                 }
                             }
 
-                            // Analyze button — opens DownloadDialog
+                            if (extractionError != null) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.ErrorOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                                        Text(
+                                            text = extractionError!!,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(onClick = { extractionError = null }, modifier = Modifier.size(20.dp)) {
+                                            Icon(Icons.Default.Close, contentDescription = "Dismiss", modifier = Modifier.size(14.dp))
+                                        }
+                                    }
+                                }
+                            }
+
                             val hasLink = linkText.isNotBlank()
                             Surface(
                                 onClick = {
-                                    if (hasLink) {
-                                        downloadDialogUrl = linkText
-                                        showPasteLinkDialog = true
+                                    if (hasLink && !isExtracting) {
+                                        isExtracting = true
+                                        extractionError = null
+                                        extractedVideoInfo = null
+                                        scope.launch {
+                                            try {
+                                                val result = withContext(Dispatchers.IO) {
+                                                    VideoExtractor.extract(linkText)
+                                                }
+                                                result.fold(
+                                                    onSuccess = { data ->
+                                                        extractedVideoInfo = data
+                                                    },
+                                                    onFailure = { e ->
+                                                        extractionError = e.message ?: "Extraction failed"
+                                                    }
+                                                )
+                                            } catch (e: Exception) {
+                                                extractionError = e.message ?: "Extraction failed"
+                                            } finally {
+                                                isExtracting = false
+                                            }
+                                        }
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (hasLink) MaterialTheme.colorScheme.primary
+                                color = if (hasLink && !isExtracting) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                                border = if (!hasLink) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)) else null
+                                border = if (!hasLink || isExtracting) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)) else null
                             ) {
                                 Row(
                                     modifier = Modifier.padding(12.dp),
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = if (hasLink) MaterialTheme.colorScheme.onPrimary
-                                              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
-                                    )
+                                    if (isExtracting) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = if (hasLink) MaterialTheme.colorScheme.onPrimary
+                                                  else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Analyze",
+                                        text = if (isExtracting) "Analyzing..." else "Analyze",
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = if (hasLink) MaterialTheme.colorScheme.onPrimary
+                                        color = if (hasLink && !isExtracting) MaterialTheme.colorScheme.onPrimary
                                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
                                     )
+                                }
+                            }
+
+                            if (extractedVideoInfo != null) {
+                                val info = extractedVideoInfo!!
+                                val hasAudio = !info.audioUrl.isNullOrBlank()
+                                val hasVideo = !info.videoUrl.isNullOrBlank()
+
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    AsyncImage(
+                                        model = info.thumbnail,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(max = 160.dp)
+                                            .clip(RoundedCornerShape(12.dp)),
+                                        contentScale = ContentScale.Crop,
+                                    )
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(
+                                            text = info.title.ifBlank { "Untitled Video" },
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        if (info.author.isNotBlank()) {
+                                            Text(
+                                                text = info.author,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        if (info.duration > 0) {
+                                            Text(
+                                                text = formatDuration(info.duration),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            )
+                                        }
+                                    }
+
+                                    if (hasAudio || hasVideo) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            if (hasVideo) {
+                                                Surface(
+                                                    onClick = { selectedDownloadType = 0 },
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    color = if (selectedDownloadType == 0) MaterialTheme.colorScheme.primaryContainer
+                                                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                    border = if (selectedDownloadType == 0) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                                ) {
+                                                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                        Icon(Icons.Outlined.VideoFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                        Spacer(Modifier.width(6.dp))
+                                                        Text("Video", style = MaterialTheme.typography.labelLarge)
+                                                    }
+                                                }
+                                            }
+                                            if (hasAudio) {
+                                                Surface(
+                                                    onClick = { selectedDownloadType = 1 },
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    color = if (selectedDownloadType == 1) MaterialTheme.colorScheme.primaryContainer
+                                                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                    border = if (selectedDownloadType == 1) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                                ) {
+                                                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                        Icon(Icons.Outlined.Audiotrack, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                        Spacer(Modifier.width(6.dp))
+                                                        Text("Audio", style = MaterialTheme.typography.labelLarge)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        listOf("Auto", "HD").forEachIndexed { index, quality ->
+                                            Surface(
+                                                onClick = { },
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = if (index == 0) MaterialTheme.colorScheme.primaryContainer
+                                                        else MaterialTheme.colorScheme.surfaceContainerHigh
+                                            ) {
+                                                Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        if (index == 0) Icons.Default.PlayCircle else Icons.Default.VideoLibrary,
+                                                        contentDescription = null, modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Text(quality, style = MaterialTheme.typography.labelLarge)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Surface(
+                                        onClick = {
+                                            if (isDownloadingFromStream) return@Surface
+                                            isDownloadingFromStream = true
+                                            scope.launch {
+                                                try {
+                                                    val downloadUrl = if (selectedDownloadType == 1) {
+                                                        info.audioUrl ?: info.videoUrl
+                                                    } else {
+                                                        info.videoUrlNoWatermark ?: info.videoUrl
+                                                    }
+                                                    if (downloadUrl != null) {
+                                                        viewModel.addDownload(
+                                                            url = downloadUrl,
+                                                            suggestedTitle = info.title.ifBlank { "Video" },
+                                                            quality = "Auto",
+                                                            isAudioOnly = selectedDownloadType == 1,
+                                                            customHeaders = info.httpHeaders,
+                                                            sourceUrl = info.sourceUrl
+                                                        )
+                                                        Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show()
+                                                        extractedVideoInfo = null
+                                                        linkText = ""
+                                                    } else {
+                                                        Toast.makeText(context, "No download URL available", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                } finally {
+                                                    isDownloadingFromStream = false
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.primary
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                if (selectedDownloadType == 1) Icons.Default.MusicNote else Icons.Default.Download,
+                                                contentDescription = null, modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = if (isDownloadingFromStream) "Starting..." else if (selectedDownloadType == 1) "Download Audio" else "Download Video",
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                        }
+                                    }
+
+                                    Surface(
+                                        onClick = {
+                                            extractedVideoInfo = null
+                                            extractionError = null
+                                            linkText = ""
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(10.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("Clear", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -909,13 +1143,6 @@ fun DashboardTab(
         }
     }
     }
-
-    DownloadDialog(
-        initialUrl = downloadDialogUrl,
-        showDialog = showPasteLinkDialog,
-        onDismiss = { showPasteLinkDialog = false; downloadDialogUrl = "" },
-        viewModel = viewModel,
-    )
 
     if (isOptimizing) {
         AlertDialog(onDismissRequest = {}, confirmButton = {}, title = { Text("Optimizing Storage...", fontWeight = FontWeight.SemiBold) }, text = { Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(12.dp)) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary); Spacer(modifier = Modifier.height(16.dp)); Text(text = "Reclaiming orphan bits and compressing local schema caches...", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) } }, shape = RoundedCornerShape(20.dp))

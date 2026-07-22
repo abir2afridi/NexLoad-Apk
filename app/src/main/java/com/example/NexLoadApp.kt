@@ -4,6 +4,7 @@ import android.app.Application
 import android.os.Environment
 import android.util.Log
 import com.yausername.youtubedl_android.YoutubeDL
+import com.yausername.ffmpeg.FFmpeg
 import java.io.File
 import java.io.StringWriter
 import java.io.PrintWriter
@@ -17,9 +18,10 @@ class NexLoadApp : Application() {
 
         try {
             YoutubeDL.getInstance().init(this)
-            Log.d("NexLoadApp", "yt-dlp initialized successfully")
+            FFmpeg.getInstance().init(this)
+            Log.d("NexLoadApp", "yt-dlp + ffmpeg initialized successfully")
         } catch (e: Exception) {
-            Log.e("NexLoadApp", "Failed to initialize yt-dlp", e)
+            Log.e("NexLoadApp", "Failed to initialize yt-dlp/ffmpeg", e)
         }
 
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
