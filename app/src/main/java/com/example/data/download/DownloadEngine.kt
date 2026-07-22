@@ -18,31 +18,39 @@ import java.util.concurrent.atomic.AtomicLong
 
 object DownloadEngine {
     private const val TAG = "DownloadEngine"
+    @Volatile
+    var lastPageUrl: String = ""
     private val activeJobs = ConcurrentHashMap<Int, Job>()
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope by lazy {
+        CoroutineScope(Dispatchers.IO + SupervisorJob() + CoroutineExceptionHandler { _, t ->
+            Log.e(TAG, "Uncaught coroutine exception in DownloadEngine", t)
+        })
+    }
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .cookieJar(TikTokCookieStore.cookieJar)
-        .addInterceptor { chain ->
-            val originalUrl = chain.request().url.toString()
-            val requestBuilder = chain.request().newBuilder()
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
-                .header("Accept", "*/*")
-                .header("Connection", "keep-alive")
-            if (originalUrl.contains("tiktokcdn.com") || originalUrl.contains("tiktok.com")) {
-                requestBuilder.header("Referer", "https://www.tiktok.com/")
+    private val client by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .cookieJar(TikTokCookieStore.cookieJar)
+            .addInterceptor { chain ->
+                val originalUrl = chain.request().url.toString()
+                val requestBuilder = chain.request().newBuilder()
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+                    .header("Accept", "*/*")
+                    .header("Connection", "keep-alive")
+                if (originalUrl.contains("tiktokcdn.com") || originalUrl.contains("tiktok.com")) {
+                    requestBuilder.header("Referer", "https://www.tiktok.com/")
+                }
+                if (originalUrl.contains("fbcdn") || originalUrl.contains("facebook.com") || originalUrl.contains("scontent")) {
+                    requestBuilder.header("Referer", "https://www.facebook.com/")
+                }
+                chain.proceed(requestBuilder.build())
             }
-            if (originalUrl.contains("fbcdn") || originalUrl.contains("facebook.com") || originalUrl.contains("scontent")) {
-                requestBuilder.header("Referer", "https://www.facebook.com/")
-            }
-            chain.proceed(requestBuilder.build())
-        }
-        .build()
+            .build()
+    }
 
     // Map to track progress speed calculations
     private val speedMap = ConcurrentHashMap<Int, Long>()
@@ -53,19 +61,9 @@ object DownloadEngine {
             return
         }
 
-        val db = AppDatabase.getDatabase(context)
-        val dao = db.downloadDao()
-
         val job = scope.launch {
             try {
-                val download = dao.getDownloadById(downloadId) ?: return@launch
-                if (download.status == "COMPLETED") return@launch
-
-                val downloadingEntity = download.copy(status = "DOWNLOADING", errorMessage = null)
-                dao.updateDownload(downloadingEntity)
-                
-                // Perform download
-                executeDownload(context, downloadingEntity)
+                startDownloadSuspend(context, downloadId)
             } catch (e: CancellationException) {
                 Log.d(TAG, "Download $downloadId was cancelled/paused")
             } catch (e: Exception) {
@@ -87,6 +85,31 @@ object DownloadEngine {
             }
         }
         activeJobs[downloadId] = job
+    }
+
+    suspend fun startDownloadSuspend(context: Context, downloadId: Int) {
+        val db = AppDatabase.getDatabase(context)
+        val dao = db.downloadDao()
+        val download = dao.getDownloadById(downloadId) ?: return
+        if (download.status == "COMPLETED") return
+        val downloadingEntity = download.copy(status = "DOWNLOADING", errorMessage = null)
+        dao.updateDownload(downloadingEntity)
+        try {
+            executeDownload(context, downloadingEntity)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Error downloading $downloadId", e)
+            val currentDownload = dao.getDownloadById(downloadId)
+            if (currentDownload != null) {
+                dao.updateDownload(
+                    currentDownload.copy(
+                        status = "FAILED",
+                        errorMessage = e.localizedMessage ?: "Unknown network error"
+                    )
+                )
+            }
+        }
     }
 
     fun pauseDownload(context: Context, downloadId: Int) {
@@ -243,48 +266,52 @@ object DownloadEngine {
             val body = response.body ?: throw Exception("Empty response body")
             val isAppend = response.code == 206 || (existingBytes > 0 && totalLength == 0L)
             
-            val raf = RandomAccessFile(file, "rw")
-            if (isAppend) {
-                raf.seek(existingBytes)
-            } else {
-                raf.setLength(0) // clear
-            }
-            
-            val inputStream = body.byteStream()
-            val buffer = ByteArray(8 * 1024)
-            var bytesRead: Int
+            var raf: RandomAccessFile? = null
             var downloadedBytes = if (isAppend) existingBytes else 0L
-            
-            var lastUpdate = System.currentTimeMillis()
-            var speedBytes = 0L
+            try {
+                raf = RandomAccessFile(file, "rw")
+                if (isAppend) {
+                    raf.seek(existingBytes)
+                } else {
+                    raf.setLength(0) // clear
+                }
+                
+                val inputStream = body.byteStream()
+                val buffer = ByteArray(8 * 1024)
+                var bytesRead: Int
+                
+                var lastUpdate = System.currentTimeMillis()
+                var speedBytes = 0L
 
-            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                ensureActive() // cooperatively handle cancel
-                raf.write(buffer, 0, bytesRead)
-                downloadedBytes += bytesRead
-                speedBytes += bytesRead
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    ensureActive() // cooperatively handle cancel
+                    raf.write(buffer, 0, bytesRead)
+                    downloadedBytes += bytesRead
+                    speedBytes += bytesRead
 
-                val now = System.currentTimeMillis()
-                if (now - lastUpdate >= 500) {
-                    val elapsed = (now - lastUpdate) / 1000.0
-                    val currentSpeed = (speedBytes / elapsed).toLong()
-                    speedBytes = 0L
-                    lastUpdate = now
+                    val now = System.currentTimeMillis()
+                    if (now - lastUpdate >= 500) {
+                        val elapsed = (now - lastUpdate) / 1000.0
+                        val currentSpeed = (speedBytes / elapsed).toLong()
+                        speedBytes = 0L
+                        lastUpdate = now
 
-                    val latest = dao.getDownloadById(download.id)
-                    if (latest != null && (latest.status == "DOWNLOADING" || latest.status == "QUEUED")) {
-                        dao.updateDownload(
-                            latest.copy(
-                                status = "DOWNLOADING",
-                                totalBytes = totalLength,
-                                downloadedBytes = downloadedBytes,
-                                speed = currentSpeed
+                        val latest = dao.getDownloadById(download.id)
+                        if (latest != null && (latest.status == "DOWNLOADING" || latest.status == "QUEUED")) {
+                            dao.updateDownload(
+                                latest.copy(
+                                    status = "DOWNLOADING",
+                                    totalBytes = totalLength,
+                                    downloadedBytes = downloadedBytes,
+                                    speed = currentSpeed
+                                )
                             )
-                        )
+                        }
                     }
                 }
+            } finally {
+                raf?.close()
             }
-            raf.close()
 
             // Scan the file so it appears in the gallery/file manager
             MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), null, null)
@@ -311,9 +338,13 @@ object DownloadEngine {
         val file = File(download.filepath)
 
         // Pre-allocate file size
-        val rafSetup = RandomAccessFile(file, "rw")
-        rafSetup.setLength(totalLength)
-        rafSetup.close()
+        var rafSetup: RandomAccessFile? = null
+        try {
+            rafSetup = RandomAccessFile(file, "rw")
+            rafSetup.setLength(totalLength)
+        } finally {
+            rafSetup?.close()
+        }
 
         val numThreads = download.threads
         val chunkSize = totalLength / numThreads
@@ -396,19 +427,23 @@ object DownloadEngine {
             var bytesRead: Int
             var currentWritePosition = start
 
-            val raf = RandomAccessFile(file, "rw")
-            raf.seek(start)
+            var raf: RandomAccessFile? = null
+            try {
+                raf = RandomAccessFile(file, "rw")
+                raf.seek(start)
 
-            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                currentWritePosition += bytesRead
-                raf.write(buffer, 0, bytesRead)
-                totalProgress.addAndGet(bytesRead.toLong())
-                speedTracker.addAndGet(bytesRead.toLong())
-                
-                // Cooperative cancel check
-                yield()
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    currentWritePosition += bytesRead
+                    raf.write(buffer, 0, bytesRead)
+                    totalProgress.addAndGet(bytesRead.toLong())
+                    speedTracker.addAndGet(bytesRead.toLong())
+                    
+                    // Cooperative cancel check
+                    yield()
+                }
+            } finally {
+                raf?.close()
             }
-            raf.close()
         }
     }
 }

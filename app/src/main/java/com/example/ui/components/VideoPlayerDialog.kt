@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import android.media.MediaPlayer
 import android.net.Uri
+import android.util.Log
 import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -92,12 +93,24 @@ fun VideoPlayerDialog(
                     AndroidView(
                         factory = { ctx ->
                             VideoView(ctx).apply {
-                                setVideoURI(Uri.fromFile(File(filePath)))
+                                try {
+                                    setVideoURI(Uri.fromFile(File(filePath)))
+                                } catch (e: Exception) {
+                                    videoViewInstance = this
+                                    return@apply
+                                }
                                 setOnPreparedListener { mp ->
-                                    duration = mp.duration
-                                    mp.isLooping = true
-                                    start()
-                                    isPlaying = true
+                                    duration = try { mp.duration } catch (_: Exception) { 0 }
+                                    try {
+                                        mp.isLooping = true
+                                        start()
+                                        isPlaying = true
+                                    } catch (_: Exception) {}
+                                }
+                                setOnErrorListener { _, what, extra ->
+                                    Log.e("VideoPlayer", "Video error: what=$what extra=$extra")
+                                    isPlaying = false
+                                    true
                                 }
                                 videoViewInstance = this
                             }

@@ -75,6 +75,19 @@ fun DownloadsTab(viewModel: MainViewModel, onNavigateToHome: () -> Unit = {}) {
     var activePlayingFilePath by remember { mutableStateOf<String?>(null) }
     var selectedMetadataItem by remember { mutableStateOf<DownloadEntity?>(null) }
 
+    fun openDownloadFile(item: DownloadEntity) {
+        val file = File(item.filepath)
+        if (file.exists()) {
+            if (item.category == "Video") {
+                activePlayingFilePath = item.filepath
+            } else {
+                selectedMetadataItem = item
+            }
+        } else {
+            Toast.makeText(context, "File was moved or deleted outside the app.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val categories = listOf("All", "Video", "Audio", "Images", "Other")
     val filteredFiles = if (selectedCategoryFilter == "All") completedFiles else {
         completedFiles.filter { it.category == selectedCategoryFilter }
@@ -327,6 +340,7 @@ fun DownloadsTab(viewModel: MainViewModel, onNavigateToHome: () -> Unit = {}) {
                         isSelectionMode = isDownloadsSelectionMode,
                         selectedIds = downloadSelectedIds,
                         onToggleSelectionMode = { isDownloadsSelectionMode = it },
+                        onOpenFile = { openDownloadFile(it) },
                         viewModel = viewModel
                     )
                     1 -> FilesContent(
@@ -393,6 +407,7 @@ private fun DownloadsContent(
     isSelectionMode: Boolean,
     selectedIds: MutableList<Int>,
     onToggleSelectionMode: (Boolean) -> Unit,
+    onOpenFile: (DownloadEntity) -> Unit,
     viewModel: MainViewModel
 ) {
     val allDownloads = activeQueue + completedQueue
@@ -579,6 +594,8 @@ private fun DownloadsContent(
                                         if (isSelectionMode) {
                                             if (isSelected) selectedIds.remove(item.id)
                                             else selectedIds.add(item.id)
+                                        } else if (item.status == "COMPLETED") {
+                                            onOpenFile(item)
                                         }
                                     },
                                     onLongClick = {
@@ -625,6 +642,8 @@ private fun DownloadsContent(
                                         if (isSelectionMode) {
                                             if (isSelected) selectedIds.remove(item.id)
                                             else selectedIds.add(item.id)
+                                        } else {
+                                            onOpenFile(item)
                                         }
                                     },
                                     onLongClick = {

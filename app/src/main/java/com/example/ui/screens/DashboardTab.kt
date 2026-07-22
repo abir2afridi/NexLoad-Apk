@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Environment
 import android.os.StatFs
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -47,9 +48,10 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
-import com.example.data.download.VideoExtractor
+
 import com.example.R
 import com.example.ui.components.DownloadHealthIndicators
+import com.example.ui.components.DownloadDialog
 import com.example.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -95,7 +97,6 @@ fun DashboardTab(
     val secondColor by viewModel.secondColor.collectAsState()
 
     var linkText by remember { mutableStateOf("") }
-    var analyzeRequested by remember { mutableStateOf(false) }
 
     data class PlatformInfo(val name: String, val faviconUrl: String)
     fun detectPlatform(url: String): PlatformInfo? {
@@ -189,8 +190,7 @@ fun DashboardTab(
     }
 
     var showPasteLinkDialog by remember { mutableStateOf(false) }
-    var pastedUrl by remember { mutableStateOf("") }
-    var pastedTitle by remember { mutableStateOf("") }
+    var downloadDialogUrl by remember { mutableStateOf("") }
     var isOptimizing by remember { mutableStateOf(false) }
 
     // Storage stats
@@ -632,78 +632,6 @@ fun DashboardTab(
                             )
                         }
                     } else {
-                        var isFetching by remember { mutableStateOf(false) }
-                        var analyzeError by remember { mutableStateOf<String?>(null) }
-                        var tiktokInfo by remember { mutableStateOf<TikTokVideoInfo?>(null) }
-                        val isTikTokUrl = linkText.contains("tiktok.com") || linkText.contains("vt.tiktok.com")
-
-                        LaunchedEffect(analyzeRequested) {
-                            if (analyzeRequested && linkText.isNotBlank()) {
-                                tiktokInfo = null
-                                analyzeError = null
-                                isFetching = true
-                                val result = withContext(Dispatchers.IO) {
-                                    VideoExtractor.extract(linkText)
-                                }
-                                result.fold(
-                                    onSuccess = { data ->
-                                        val qualities = mutableListOf<TikTokQuality>()
-                                        // TikTok-specific labels
-                                        val isTiktok = linkText.contains("tiktok.com")
-                                        data.videoUrlNoWatermark?.let { url ->
-                                            qualities.add(TikTokQuality(
-                                                if (isTiktok) "HD (No Watermark)" else "Download",
-                                                "—", "MP4", url
-                                            ))
-                                        }
-                                        data.videoUrl?.let { url ->
-                                            qualities.add(TikTokQuality(
-                                                if (isTiktok) "With Watermark" else "Download",
-                                                "—", "MP4", url
-                                            ))
-                                        }
-                                        data.audioUrl?.let { url ->
-                                            qualities.add(TikTokQuality("Audio Only", "—", "MP3", url))
-                                        }
-                                        // Determine platform name for display
-                                        val platformName = when {
-                                            linkText.contains("tiktok.com") -> "TikTok"
-                                            linkText.contains("instagram.com") -> "Instagram"
-                                            linkText.contains("facebook.com") || linkText.contains("fb.watch") -> "Facebook"
-                                            linkText.contains("twitter.com") || linkText.contains("x.com") -> "X / Twitter"
-                                            linkText.contains("reddit.com") -> "Reddit"
-                                            linkText.contains("pinterest.com") -> "Pinterest"
-                                            linkText.contains("soundcloud.com") -> "SoundCloud"
-                                            linkText.contains("vimeo.com") -> "Vimeo"
-                                            linkText.contains("twitch.tv") -> "Twitch"
-                                            linkText.contains("dailymotion.com") -> "Dailymotion"
-                                            linkText.contains("tumblr.com") -> "Tumblr"
-                                            else -> "Video"
-                                        }
-                                        tiktokInfo = TikTokVideoInfo(
-                                            id = data.id,
-                                            title = data.title.ifBlank { "$platformName Video" },
-                                            author = data.author.ifBlank { data.authorId },
-                                            thumbnail = data.thumbnail,
-                                            duration = formatDuration(data.duration),
-                                            qualities = qualities
-                                        )
-                                    },
-                                    onFailure = { error ->
-                                        analyzeError = when {
-                                            error.message?.contains("Network", true) == true -> "Can't reach the server. Check your connection."
-                                            error.message?.contains("HTTP 403", true) == true -> "Server blocked this request. Try again later."
-                                            error.message?.contains("HTTP 404", true) == true -> "Video not found or was deleted."
-                                            error.message?.contains("video ID", true) == true -> "Invalid link format."
-                                            else -> error.message ?: "Could not download this video."
-                                        }
-                                    }
-                                )
-                                isFetching = false
-                                analyzeRequested = false
-                            }
-                        }
-
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -748,7 +676,7 @@ fun DashboardTab(
                                     }
                                     TextField(
                                         value = linkText,
-                                        onValueChange = { linkText = it; analyzeError = null },
+                                        onValueChange = { linkText = it },
                                         modifier = Modifier
                                             .weight(1f)
                                             .focusable(),
@@ -791,7 +719,7 @@ fun DashboardTab(
                                     }
                                     if (linkText.isNotBlank()) {
                                         IconButton(
-                                            onClick = { linkText = ""; analyzeError = null; tiktokInfo = null },
+                                            onClick = { linkText = "" },
                                             modifier = Modifier.size(28.dp)
                                         ) {
                                             Icon(
@@ -805,169 +733,40 @@ fun DashboardTab(
                                 }
                             }
 
-                            // Analyze button — always visible, dimmed when no link
-                            if (tiktokInfo == null && !isFetching) {
-                                val hasLink = linkText.isNotBlank()
-                                Surface(
-                                    onClick = { if (hasLink) analyzeRequested = true },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (hasLink) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                                    border = if (!hasLink) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)) else null
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(12.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Search,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp),
-                                            tint = if (hasLink) MaterialTheme.colorScheme.onPrimary
-                                                  else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "Analyze",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = if (hasLink) MaterialTheme.colorScheme.onPrimary
-                                                   else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
-                                        )
+                            // Analyze button — opens DownloadDialog
+                            val hasLink = linkText.isNotBlank()
+                            Surface(
+                                onClick = {
+                                    if (hasLink) {
+                                        downloadDialogUrl = linkText
+                                        showPasteLinkDialog = true
                                     }
-                                }
-                            }
-
-                            // Loading indicator
-                            if (isFetching) {
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (hasLink) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                                border = if (!hasLink) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)) else null
+                            ) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text("Analyzing link...", style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-
-                            // Error message — below input, input stays visible
-                            if (analyzeError != null) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = analyzeError ?: "Unknown error",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-
-                            // Video info + quality picker
-                            if (tiktokInfo != null) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val thumbnailDomain = remember(tiktokInfo) {
-                                        when {
-                                            linkText.contains("tiktok.com") -> "tiktok.com"
-                                            linkText.contains("instagram.com") -> "instagram.com"
-                                            linkText.contains("facebook.com") || linkText.contains("fb.watch") -> "facebook.com"
-                                            linkText.contains("twitter.com") || linkText.contains("x.com") -> "x.com"
-                                            linkText.contains("reddit.com") -> "reddit.com"
-                                            linkText.contains("pinterest.com") -> "pinterest.com"
-                                            linkText.contains("soundcloud.com") -> "soundcloud.com"
-                                            linkText.contains("vimeo.com") -> "vimeo.com"
-                                            linkText.contains("twitch.tv") -> "twitch.tv"
-                                            linkText.contains("dailymotion.com") -> "dailymotion.com"
-                                            linkText.contains("tumblr.com") -> "tumblr.com"
-                                            else -> "video"
-                                        }
-                                    }
-                                    AsyncImage(
-                                        model = tiktokInfo!!.thumbnail.ifEmpty { "https://www.google.com/s2/favicons?sz=64&domain=$thumbnailDomain" },
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
                                         contentDescription = null,
-                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                                        contentScale = ContentScale.Crop
+                                        modifier = Modifier.size(18.dp),
+                                        tint = if (hasLink) MaterialTheme.colorScheme.onPrimary
+                                              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
                                     )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = tiktokInfo!!.title,
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = "${tiktokInfo!!.author} • ${tiktokInfo!!.duration}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    IconButton(onClick = { linkText = ""; tiktokInfo = null; analyzeError = null }) {
-                                        Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
-                                    }
-                                }
-
-                                Text(
-                                    text = "Choose Quality",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-
-                                tiktokInfo!!.qualities.forEach { quality ->
-                                    Surface(
-                                        onClick = {
-                                            viewModel.addDownload(
-                                                url = quality.url,
-                                                suggestedTitle = "${tiktokInfo!!.author} - ${tiktokInfo!!.title}",
-                                                isAudioOnly = quality.format == "MP3",
-                                                quality = quality.label
-                                            )
-                                            linkText = ""
-                                            tiktokInfo = null
-                                            Toast.makeText(context, "Download Started", Toast.LENGTH_SHORT).show()
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    imageVector = if (quality.format == "MP3") Icons.Default.Audiotrack else Icons.Default.PlayCircle,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp),
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                                Spacer(modifier = Modifier.width(12.dp))
-                                                Text(
-                                                    text = quality.label,
-                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                                                )
-                                            }
-                                            Text(
-                                                text = quality.size,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Analyze",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = if (hasLink) MaterialTheme.colorScheme.onPrimary
+                                               else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+                                    )
                                 }
                             }
                         }
@@ -1111,9 +910,12 @@ fun DashboardTab(
     }
     }
 
-    if (showPasteLinkDialog) {
-        AlertDialog(onDismissRequest = { showPasteLinkDialog = false }, icon = { Icon(imageVector = Icons.Default.CloudDownload, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) }, title = { Text("New Download", fontWeight = FontWeight.SemiBold) }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { OutlinedTextField(value = pastedUrl, onValueChange = { pastedUrl = it }, label = { Text("URL") }, placeholder = { Text("Paste media link...") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)); OutlinedTextField(value = pastedTitle, onValueChange = { pastedTitle = it }, label = { Text("Title") }, placeholder = { Text("Optional") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) } }, confirmButton = { Button(onClick = { val url = pastedUrl.trim(); if (url.isNotBlank()) { val title = if (pastedTitle.isBlank()) "Stream Socket Link" else pastedTitle; viewModel.addDownload(url, title); Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show(); pastedUrl = ""; pastedTitle = ""; showPasteLinkDialog = false } else { Toast.makeText(context, "Please provide a valid stream link", Toast.LENGTH_SHORT).show() } }, shape = RoundedCornerShape(12.dp)) { Text("Download") } }, dismissButton = { TextButton(onClick = { showPasteLinkDialog = false }) { Text("Cancel") } }, shape = RoundedCornerShape(20.dp))
-    }
+    DownloadDialog(
+        initialUrl = downloadDialogUrl,
+        showDialog = showPasteLinkDialog,
+        onDismiss = { showPasteLinkDialog = false; downloadDialogUrl = "" },
+        viewModel = viewModel,
+    )
 
     if (isOptimizing) {
         AlertDialog(onDismissRequest = {}, confirmButton = {}, title = { Text("Optimizing Storage...", fontWeight = FontWeight.SemiBold) }, text = { Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(12.dp)) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary); Spacer(modifier = Modifier.height(16.dp)); Text(text = "Reclaiming orphan bits and compressing local schema caches...", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) } }, shape = RoundedCornerShape(20.dp))

@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.activity.compose.BackHandler
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import android.view.ViewGroup
 import android.webkit.*
 import android.widget.FrameLayout
@@ -39,12 +40,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewModelScope
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.data.browser.AdBlocker
+import com.example.data.download.DownloadEngine
+import com.example.data.download.VideoExtractor
+import com.example.ui.components.DownloadDialog
 import com.example.ui.viewmodel.MainViewModel
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
+
+private fun isDirectMediaUrl(url: String): Boolean {
+    val path = try { android.net.Uri.parse(url).path?.lowercase() ?: url.lowercase() } catch (_: Exception) { url.lowercase() }
+    return path.endsWith(".mp4") || path.endsWith(".m3u8") || path.endsWith(".webm") ||
+           path.endsWith(".mkv") || path.endsWith(".avi") || path.endsWith(".mov") ||
+           path.endsWith(".flv") || path.endsWith(".3gp") || path.endsWith(".ts") ||
+           path.endsWith(".mp3") || path.endsWith(".m4a") || path.endsWith(".aac") ||
+           path.endsWith(".ogg") || path.endsWith(".wav") || path.endsWith(".flac") ||
+           path.endsWith(".wma") || path.endsWith(".opus")
+}
 
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,6 +103,10 @@ fun BrowserTab(viewModel: MainViewModel) {
     var showHistorySheet by remember { mutableStateOf(false) }
     var showTabGallerySheet by remember { mutableStateOf(false) }
     var showHome by remember { mutableStateOf(currentUrl == "about:blank") }
+    var resolvingMedia by remember { mutableStateOf(false) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
+    var downloadDialogUrl by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
 
     // Sync showHome when active tab changes
     LaunchedEffect(activeTabId, tabs) {
@@ -425,7 +449,14 @@ fun BrowserTab(viewModel: MainViewModel) {
         floatingActionButton = {
             if (detectedMedia.isNotEmpty()) {
                 FloatingActionButton(
-                    onClick = { showMediaSheet = true },
+                    onClick = {
+                        if (detectedMedia.size == 1) {
+                            downloadDialogUrl = detectedMedia.first().url
+                            showDownloadDialog = true
+                        } else {
+                            showMediaSheet = true
+                        }
+                    },
                     modifier = Modifier
                         .padding(bottom = 90.dp)
                         .testTag("media_detected_fab"),
@@ -514,6 +545,9 @@ fun BrowserTab(viewModel: MainViewModel) {
                             onPageFinished = { view, url ->
                                 val title = view?.title ?: ""
                                 viewModel.updateActiveTabTitle(title)
+                                if (!url.isNullOrBlank()) {
+                                    try { DownloadEngine.lastPageUrl = url } catch (_: Exception) {}
+                                }
                                 // Save history only for non-incognito tabs
                                 if (!tabIsIncognito && !url.isNullOrBlank()) {
                                     viewModel.addHistoryEntry(url, title.ifBlank { url })
@@ -930,10 +964,46 @@ fun BrowserTab(viewModel: MainViewModel) {
                             if (detectedMedia.size > 1) {
                                 FilledTonalButton(
                                     onClick = {
-                                        detectedMedia.forEach { viewModel.addDownload(it.url, it.title) }
-                                        Toast.makeText(context, "${detectedMedia.size} downloads queued!", Toast.LENGTH_SHORT).show()
-                                        showMediaSheet = false
+                                        resolvingMedia = true
+                                        viewModel.viewModelScope.launch {
+                                            val mediaItems = detectedMedia.toList()
+                                            var successCount = 0
+                                            try {
+                                                for (item in mediaItems) {
+                                                    try {
+                                                        val resolved = withContext(Dispatchers.IO) {
+                                                            if (isDirectMediaUrl(item.url)) {
+                                                                item.url
+                                                            } else {
+                                                                val result = try {
+                                                                    VideoExtractor.extract(item.url)
+                                                                } catch (e: Throwable) {
+                                                                    Log.e("BrowserTab", "Extract crash for ${item.url}", e)
+                                                                    null
+                                                                }
+                                                                val data = result?.getOrNull()
+                                                                data?.videoUrlNoWatermark ?: data?.videoUrl ?: item.url
+                                                            }
+                                                        }
+                                                        viewModel.addDownload(resolved, item.title)
+                                                        successCount++
+                                                    } catch (e: kotlinx.coroutines.CancellationException) {
+                                                        throw e
+                                                    } catch (e: Throwable) {
+                                                        Log.e("BrowserTab", "Failed to extract ${item.url}", e)
+                                                    }
+                                                }
+                                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                                throw e
+                                            } catch (e: Throwable) {
+                                                Log.e("BrowserTab", "Download All failed", e)
+                                            }
+                                            resolvingMedia = false
+                                            Toast.makeText(context, "$successCount/${mediaItems.size} downloads queued!", Toast.LENGTH_SHORT).show()
+                                            showMediaSheet = false
+                                        }
                                     },
+                                    enabled = !resolvingMedia,
                                     shape = RoundedCornerShape(12.dp),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
@@ -961,7 +1031,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     LazyColumn(
-                        modifier = Modifier.weight(1f, fill = false).heightIn(max = 420.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(detectedMedia) { media ->
@@ -975,9 +1045,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                                 tonalElevation = 1.dp,
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(14.dp)
-                                ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
                                     Row(verticalAlignment = Alignment.Top) {
                                         Box(
                                             modifier = Modifier
@@ -997,9 +1065,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                                                        else MaterialTheme.colorScheme.onPrimaryContainer
                                             )
                                         }
-
                                         Spacer(modifier = Modifier.width(12.dp))
-
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
                                                 text = media.title,
@@ -1044,19 +1110,20 @@ fun BrowserTab(viewModel: MainViewModel) {
                                             )
                                         }
                                     }
-
                                     Spacer(modifier = Modifier.height(12.dp))
-
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Button(
+                                         Button(
                                             onClick = {
-                                                viewModel.addDownload(media.url, media.title)
-                                                Toast.makeText(context, "Download queued!", Toast.LENGTH_SHORT).show()
+                                                downloadDialogUrl = media.url
                                                 showMediaSheet = false
+                                                scope.launch {
+                                                    delay(300)
+                                                    showDownloadDialog = true
+                                                }
                                             },
                                             modifier = Modifier.weight(1f).height(40.dp),
                                             shape = RoundedCornerShape(12.dp),
@@ -1066,13 +1133,42 @@ fun BrowserTab(viewModel: MainViewModel) {
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text("Download", style = MaterialTheme.typography.labelLarge)
                                         }
-
                                         Surface(
                                             onClick = {
-                                                viewModel.addDownload(media.url, media.title, isAudioOnly = true)
-                                                Toast.makeText(context, "Audio extraction queued!", Toast.LENGTH_SHORT).show()
-                                                showMediaSheet = false
+                                                resolvingMedia = true
+                                                viewModel.viewModelScope.launch {
+                                                    var success = false
+                                                    try {
+                                                        val resolved = withContext(Dispatchers.IO) {
+                                                            if (isDirectMediaUrl(media.url)) {
+                                                                media.url
+                                                            } else {
+                                                                val result = try {
+                                                                    VideoExtractor.extract(media.url)
+                                                                } catch (e: Throwable) {
+                                                                    Log.e("BrowserTab", "Extract crash for ${media.url}", e)
+                                                                    null
+                                                                }
+                                                                val data = result?.getOrNull()
+                                                                data?.audioUrl ?: data?.videoUrlNoWatermark ?: data?.videoUrl ?: media.url
+                                                            }
+                                                        }
+                                                        viewModel.addDownload(resolved, media.title, isAudioOnly = true)
+                                                        success = true
+                                                    } catch (e: kotlinx.coroutines.CancellationException) {
+                                                        throw e
+                                                    } catch (e: Throwable) {
+                                                        Log.e("BrowserTab", "Failed to extract audio from ${media.url}", e)
+                                                        Toast.makeText(context, "Extraction failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                    resolvingMedia = false
+                                                    if (success) {
+                                                        Toast.makeText(context, "Audio extraction queued!", Toast.LENGTH_SHORT).show()
+                                                        showMediaSheet = false
+                                                    }
+                                                }
                                             },
+                                            enabled = !resolvingMedia,
                                             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
                                             shape = RoundedCornerShape(12.dp),
                                             modifier = Modifier.size(40.dp)
@@ -1086,7 +1182,6 @@ fun BrowserTab(viewModel: MainViewModel) {
                                                 )
                                             }
                                         }
-
                                         Surface(
                                             onClick = {
                                                 clipboardManager.setText(AnnotatedString(media.url))
@@ -1113,6 +1208,14 @@ fun BrowserTab(viewModel: MainViewModel) {
                 }
             }
         }
+
+        // ===================== DOWNLOAD DIALOG =====================
+        DownloadDialog(
+            initialUrl = downloadDialogUrl,
+            showDialog = showDownloadDialog,
+            onDismiss = { showDownloadDialog = false },
+            viewModel = viewModel,
+        )
     }
 }
 
@@ -1268,7 +1371,7 @@ private fun createWebView(
         addJavascriptInterface(object {
             @JavascriptInterface
             fun postMedia(url: String, title: String) {
-                onMediaDetected(url, title)
+                try { onMediaDetected(url, title) } catch (_: Exception) {}
             }
         }, "MediaScanner")
 
@@ -1300,42 +1403,65 @@ private fun createWebView(
                 }
                 view?.evaluateJavascript("""
                     (function() {
-                        var style = document.createElement('style');
-                        style.innerHTML = 'body { padding-bottom: 120px !important; }';
-                        document.head.appendChild(style);
-                        
+                        try {
+                        var h = document.head;
+                        if (h) {
+                            var style = document.createElement('style');
+                            style.innerHTML = 'body { padding-bottom: 120px !important; }';
+                            h.appendChild(style);
+                        }
+
+                        function resolve(u) {
+                            if (!u) return '';
+                            try { return new URL(u, document.baseURI).href; } catch(e) { return u; }
+                        }
+                        function isMediaUrl(u) {
+                            if (!u) return false;
+                            var lower = u.toLowerCase();
+                            return lower.indexOf('.mp4') !== -1 || lower.indexOf('.mp3') !== -1 ||
+                                   lower.indexOf('.m4a') !== -1 || lower.indexOf('.webm') !== -1 ||
+                                   lower.indexOf('.mov') !== -1 || lower.indexOf('.avi') !== -1 ||
+                                   lower.indexOf('.mkv') !== -1 || lower.indexOf('.flv') !== -1 ||
+                                   lower.indexOf('.ts') !== -1 || lower.indexOf('.m3u8') !== -1 ||
+                                   lower.indexOf('googlevideo.com') !== -1 || lower.indexOf('manifest') !== -1;
+                        }
+
                         function scan() {
                             var urls = [];
                             var videos = document.getElementsByTagName('video');
                             for (var i = 0; i < videos.length; i++) {
-                                var src = videos[i].src || videos[i].getAttribute('data-src') || videos[i].getAttribute('data-url') || '';
+                                var src = videos[i].src || '';
+                                if (!src) {
+                                    try { src = videos[i].currentSrc || ''; } catch(e) {}
+                                }
+                                if (!src) {
+                                    var dataSrc = videos[i].getAttribute('data-src') || videos[i].getAttribute('data-url') || '';
+                                    src = resolve(dataSrc);
+                                }
                                 if (src && !src.startsWith('blob:') && !src.startsWith('data:')) urls.push({url: src, title: document.title || 'Video'});
                                 var sources = videos[i].getElementsByTagName('source');
                                 for (var j = 0; j < sources.length; j++) {
-                                    var s = sources[j].src || sources[j].getAttribute('data-src') || '';
+                                    var s = sources[j].src || '';
+                                    if (!s) s = resolve(sources[j].getAttribute('data-src') || '');
                                     if (s && !s.startsWith('blob:') && !s.startsWith('data:')) urls.push({url: s, title: document.title || 'Video'});
                                 }
                             }
                             var metas = document.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player"]');
                             for (var i = 0; i < metas.length; i++) {
-                                var c = metas[i].content;
-                                if (c && c.indexOf('http') === 0) urls.push({url: c, title: document.title || 'Video'});
-                            }
-                            var iframes = document.querySelectorAll('iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="tiktok"], iframe[src*="instagram"]');
-                            for (var i = 0; i < iframes.length; i++) {
-                                var s = iframes[i].src;
-                                if (s) urls.push({url: s, title: document.title || 'Embed'});
+                                var c = resolve(metas[i].content);
+                                if (c && (c.indexOf('http') === 0)) urls.push({url: c, title: document.title || 'Video'});
                             }
                             var links = document.getElementsByTagName('a');
                             for (var i = 0; i < links.length; i++) {
                                 var href = links[i].href;
-                                if (href && (href.indexOf('.mp4') !== -1 || href.indexOf('.mp3') !== -1 || href.indexOf('.m4a') !== -1 || href.indexOf('.webm') !== -1 || href.indexOf('.mov') !== -1 || href.indexOf('.avi') !== -1) && href.indexOf('blob:') !== 0) {
+                                if (href && isMediaUrl(href) && href.indexOf('blob:') !== 0) {
                                     urls.push({url: href, title: links[i].innerText || document.title || 'Media File'});
                                 }
                             }
                             var embeds = document.querySelectorAll('[data-media-url], [data-video-url], [data-video-src], [data-mp4]');
                             for (var i = 0; i < embeds.length; i++) {
-                                var attr = embeds[i].getAttribute('data-media-url') || embeds[i].getAttribute('data-video-url') || embeds[i].getAttribute('data-video-src') || embeds[i].getAttribute('data-mp4') || '';
+                                var raw = embeds[i].getAttribute('data-media-url') || embeds[i].getAttribute('data-video-url') || embeds[i].getAttribute('data-video-src') || embeds[i].getAttribute('data-mp4') || '';
+                                var attr = resolve(raw);
                                 if (attr && attr.indexOf('http') === 0) urls.push({url: attr, title: document.title || 'Media'});
                             }
                             var seen = {};
@@ -1347,6 +1473,7 @@ private fun createWebView(
                         scan();
                         setTimeout(function() { scan(); }, 1500);
                         setTimeout(function() { scan(); }, 4000);
+                        } catch(e) {}
                     })();
                 """.trimIndent(), null)
             }
@@ -1366,10 +1493,12 @@ private fun createWebView(
                 }
                 if (urlStr.contains(".mp4") || urlStr.contains(".m3u8") || urlStr.contains(".ts?") || 
                     urlStr.contains(".webm") || urlStr.contains(".mov?") || urlStr.contains(".avi?")) {
-                    val title = request?.requestHeaders?.get("Referer")?.let { 
-                        it.substringAfterLast("/").substringBefore("?").take(30) 
-                    } ?: "Stream"
-                    onMediaDetected(urlStr, title)
+                    try {
+                        val title = request?.requestHeaders?.get("Referer")?.let { 
+                            it.substringAfterLast("/").substringBefore("?").take(30) 
+                        } ?: "Stream"
+                        onMediaDetected(urlStr, title)
+                    } catch (_: Exception) {}
                 }
                 return super.shouldInterceptRequest(view, request)
             }

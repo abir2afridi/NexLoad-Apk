@@ -34,7 +34,9 @@ import org.json.JSONArray
 data class DetectedMedia(
     val url: String,
     val title: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val sizeBytes: Long = -1L,
+    val resolution: String = ""
 )
 
 data class TabData(
@@ -456,10 +458,73 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearDetectedMedia() { _detectedMediaList.value = emptyList() }
 
-    fun addDetectedMedia(url: String, title: String) {
+    fun addDetectedMedia(url: String, title: String, resolution: String = "") {
         val currentList = _detectedMediaList.value
         if (currentList.any { it.url == url }) return
-        _detectedMediaList.value = currentList + DetectedMedia(url, title)
+
+        val parsedResolution = resolution.ifBlank { parseResolutionFromUrl(url) }
+        val cleanTitle = title.ifBlank { extractNameFromUrl(url) }
+
+        _detectedMediaList.value = currentList + DetectedMedia(url, cleanTitle, resolution = parsedResolution)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val conn = java.net.URL(url).openConnection()
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn as java.net.HttpURLConnection
+                conn.requestMethod = "HEAD"
+                conn.instanceFollowRedirects = true
+                conn.connect()
+                val size = conn.contentLengthLong
+                val contentType = conn.contentType ?: ""
+                conn.disconnect()
+
+                val resolvedResolution = parsedResolution.ifBlank { parseResolutionFromContentType(contentType) }
+
+                if (size > 0 || resolvedResolution.isNotEmpty()) {
+                    _detectedMediaList.value = _detectedMediaList.value.map {
+                        if (it.url == url) it.copy(
+                            sizeBytes = if (size > 0) size else it.sizeBytes,
+                            resolution = resolvedResolution.ifEmpty { it.resolution }
+                        ) else it
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun parseResolutionFromUrl(url: String): String {
+        val lower = url.lowercase()
+        return when {
+            lower.contains("2160p") || lower.contains("4k") -> "4K"
+            lower.contains("1440p") || lower.contains("2k") -> "2K"
+            lower.contains("1080p") || lower.contains("fullhd") || lower.contains("fhd") -> "1080p"
+            lower.contains("720p") || lower.contains("hd") -> "720p"
+            lower.contains("480p") || lower.contains("sd") -> "480p"
+            lower.contains("360p") -> "360p"
+            lower.contains("240p") -> "240p"
+            lower.contains("144p") -> "144p"
+            else -> ""
+        }
+    }
+
+    private fun parseResolutionFromContentType(contentType: String): String {
+        return when {
+            contentType.startsWith("video/") -> ""
+            else -> ""
+        }
+    }
+
+    private fun extractNameFromUrl(url: String): String {
+        return try {
+            val path = Uri.parse(url).lastPathSegment ?: ""
+            path.substringBefore('?').substringBefore('#').let { name ->
+                val dot = name.lastIndexOf('.')
+                if (dot > 0) name.substring(0, dot) else name
+            }.replace("_", " ").replace("-", " ").replace("+", " ")
+                .replace(Regex("\\s+"), " ").trim().take(60)
+        } catch (_: Exception) { "" }
     }
 
     // ─── Downloads ───────────────────────────────────────────────────────────
@@ -473,31 +538,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         isAudioOnly: Boolean = false
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            val extension = if (isAudioOnly) "mp3" else "mp4"
-            val filename = MediaUtils.cleanFilename(url, null, extension)
-            val category = if (isAudioOnly) "Audio" else "Video"
-            val targetDir = if (isPrivate) {
-                File(getApplication<Application>().filesDir, "vault")
-            } else {
-                File(downloadFolderPath.value)
+            try {
+                val extension = if (isAudioOnly) "mp3" else "mp4"
+                val filename = MediaUtils.cleanFilename(url, null, extension)
+                val category = if (isAudioOnly) "Audio" else "Video"
+                val targetDir = if (isPrivate) {
+                    File(getApplication<Application>().filesDir, "vault")
+                } else {
+                    File(downloadFolderPath.value)
+                }
+                targetDir.mkdirs()
+                val filepath = File(targetDir, filename).absolutePath
+                val download = DownloadEntity(
+                    url = url, title = suggestedTitle, filename = filename,
+                    filepath = filepath,
+                    mimeType = if (isAudioOnly) "audio/mpeg" else "video/mp4",
+                    category = category, status = "QUEUED",
+                    totalBytes = 0L, downloadedBytes = 0L,
+                    isPrivate = isPrivate, threads = threads, quality = quality
+                )
+                val downloadId = dao.insertDownload(download).toInt()
+                DownloadEngine.startDownload(getApplication(), downloadId)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.e("MainViewModel", "addDownload failed", e)
             }
-            targetDir.mkdirs()
-            val filepath = File(targetDir, filename).absolutePath
-            val download = DownloadEntity(
-                url = url, title = suggestedTitle, filename = filename,
-                filepath = filepath,
-                mimeType = if (isAudioOnly) "audio/mpeg" else "video/mp4",
-                category = category, status = "QUEUED",
-                totalBytes = 0L, downloadedBytes = 0L,
-                isPrivate = isPrivate, threads = threads, quality = quality
-            )
-            val downloadId = dao.insertDownload(download).toInt()
-            DownloadEngine.startDownload(getApplication(), downloadId)
         }
     }
 
     fun pauseDownload(downloadId: Int)  { DownloadEngine.pauseDownload(getApplication(), downloadId) }
-    fun resumeDownload(downloadId: Int) { DownloadEngine.startDownload(getApplication(), downloadId) }
+    fun resumeDownload(downloadId: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                DownloadEngine.startDownloadSuspend(getApplication(), downloadId)
+            } catch (e: Exception) {
+                Log.e(TAG, "resumeDownload failed", e)
+            }
+        }
+    }
 
     fun deleteDownload(downloadId: Int) {
         viewModelScope.launch(Dispatchers.IO) {
