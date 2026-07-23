@@ -26,7 +26,16 @@ data class TikTokVideoData(
     val audioUrl: String?,
     val httpHeaders: Map<String, String>? = null,
     val sourceUrl: String? = null
-)
+) {
+    fun hasDirectVideoUrl(): Boolean {
+        val url = videoUrlNoWatermark ?: videoUrl ?: return false
+        val lower = url.lowercase()
+        return lower.contains("/video") && (lower.contains(".mp4") || lower.contains(".webm") || lower.contains(".mkv")) ||
+               lower.contains("fbcdn") || lower.contains("scontent") || lower.contains(".cdn") ||
+               lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mkv") ||
+               lower.contains("playable_url") || lower.contains("/v/")
+    }
+}
 
 object InstagramCookieStore {
     private const val TAG = "InstagramCookieStore"
@@ -199,6 +208,10 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
             requestBuilder.header("Sec-Ch-Ua-Mobile", "?1")
             requestBuilder.header("Sec-Ch-Ua-Platform", "\"Android\"")
             requestBuilder.header("Upgrade-Insecure-Requests", "1")
+            val fbCookies = FacebookCookieStore.getCookies()
+            if (fbCookies.isNotBlank()) {
+                requestBuilder.header("Cookie", fbCookies)
+            }
         } else {
             getDefaultHeaders(false).forEach { (k, v) -> requestBuilder.header(k, v) }
         }
@@ -208,6 +221,14 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
             if (!resp.isSuccessful) {
                 Log.w(EXTRACTOR_TAG, "HTTP ${resp.code} fetching page")
                 return null
+            }
+            if (isFacebook) {
+                val cookies = resp.headers("Set-Cookie")
+                if (cookies.isNotEmpty()) {
+                    val cookieStr = cookies.joinToString("; ") { it.substringBefore(";") }
+                    FacebookCookieStore.setCookies(cookieStr)
+                    Log.d(EXTRACTOR_TAG, "Saved ${cookies.size} Facebook cookies")
+                }
             }
             val html = resp.body?.string()
             if (html.isNullOrBlank()) {

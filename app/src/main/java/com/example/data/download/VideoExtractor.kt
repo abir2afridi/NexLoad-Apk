@@ -39,9 +39,7 @@ object VideoExtractor {
             }
 
             if (isFacebook) {
-                val ytDlpResult = YtDlpExtractor.extract(url)
-                if (ytDlpResult != null) return Result.success(ytDlpResult)
-                Log.w(EXTRACTOR_TAG, "yt-dlp failed for Facebook, trying custom extractor")
+                Log.d(EXTRACTOR_TAG, "Using direct Facebook extraction (skipping yt-dlp)")
                 val result = extractFacebook(url)
                 if (result != null) return Result.success(result)
                 val genericFallback = extractGeneric(url)

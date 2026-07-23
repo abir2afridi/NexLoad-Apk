@@ -13,6 +13,19 @@ import com.yausername.youtubedl_android.DownloadProgressCallback
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.yield
+import kotlinx.coroutines.delay
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -38,11 +51,9 @@ object DownloadEngine {
         } catch (_: Exception) { emptyMap() }
     }
 
-    private val scope by lazy {
-        CoroutineScope(Dispatchers.IO + SupervisorJob() + CoroutineExceptionHandler { _, t ->
-            Log.e(TAG, "Uncaught coroutine exception in DownloadEngine", t)
-        })
-    }
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + CoroutineExceptionHandler { _, t ->
+        Log.e(TAG, "Uncaught coroutine exception in DownloadEngine", t)
+    })
 
     private val client by lazy {
         OkHttpClient.Builder()
@@ -55,17 +66,24 @@ object DownloadEngine {
             .addInterceptor { chain ->
                 val originalUrl = chain.request().url.toString()
                 val requestBuilder = chain.request().newBuilder()
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
                     .header("Accept", "*/*")
                     .header("Connection", "keep-alive")
-                if (originalUrl.contains("tiktokcdn.com") || originalUrl.contains("tiktok.com") ||
+                val isFacebookCdn = originalUrl.contains("fbcdn") || originalUrl.contains("scontent")
+                if (isFacebookCdn) {
+                    requestBuilder.header("User-Agent", "facebookexternalhit/1.1")
+                    requestBuilder.header("Referer", "https://www.facebook.com/")
+                    val fbCookies = FacebookCookieStore.getCookies()
+                    if (fbCookies.isNotBlank()) {
+                        requestBuilder.header("Cookie", fbCookies)
+                    }
+                } else if (originalUrl.contains("tiktokcdn.com") || originalUrl.contains("tiktok.com") ||
                     originalUrl.contains("byteoversea.com") || originalUrl.contains("ibyteimg.com") ||
                     originalUrl.contains("tiktokv.com") || originalUrl.contains("musically.com") ||
                     originalUrl.contains("tikwm.com") || originalUrl.contains("tikcdn.io")) {
+                    requestBuilder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
                     requestBuilder.header("Referer", "https://www.tiktok.com/")
-                }
-                if (originalUrl.contains("fbcdn") || originalUrl.contains("facebook.com") || originalUrl.contains("scontent")) {
-                    requestBuilder.header("Referer", "https://www.facebook.com/")
+                } else {
+                    requestBuilder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
                 }
                 chain.proceed(requestBuilder.build())
             }
@@ -76,6 +94,7 @@ object DownloadEngine {
     private val speedMap = ConcurrentHashMap<Int, Long>()
 
     fun startDownload(context: Context, downloadId: Int) {
+        Log.d(TAG, "startDownload: downloadId=$downloadId activeJobs.size=${activeJobs.size}")
         if (activeJobs.containsKey(downloadId)) {
             Log.d(TAG, "Download $downloadId is already running")
             return
@@ -86,19 +105,10 @@ object DownloadEngine {
                 startDownloadSuspend(context, downloadId)
             } catch (e: CancellationException) {
                 Log.d(TAG, "Download $downloadId was cancelled/paused")
+                pauseDownload(context, downloadId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error downloading $downloadId", e)
-                val currentDb = AppDatabase.getDatabase(context)
-                val currentDao = currentDb.downloadDao()
-                val currentDownload = currentDao.getDownloadById(downloadId)
-                if (currentDownload != null && currentDownload.errorMessage == null) {
-                    currentDao.updateDownload(
-                        currentDownload.copy(
-                            status = "FAILED",
-                            errorMessage = e.message ?: e.toString()
-                        )
-                    )
-                }
+                pauseDownload(context, downloadId)
             } finally {
                 activeJobs.remove(downloadId)
                 speedMap.remove(downloadId)
@@ -114,8 +124,37 @@ object DownloadEngine {
         if (download.status == "COMPLETED") return
         val downloadingEntity = download.copy(status = "DOWNLOADING", errorMessage = null)
         dao.updateDownload(downloadingEntity)
+
+        // For Facebook: re-extract CDN URL right before download (tokens expire fast)
+        val isFbSource = download.sourceUrl?.let {
+            it.contains("facebook.com") || it.contains("fb.watch") || it.contains("fb.com")
+        } ?: false
+        val isFbCdn = download.url?.let {
+            it.contains("fbcdn") || it.contains("scontent")
+        } ?: false
+
+        val finalEntity = if ((isFbSource || isFbCdn) && !download.url.isNullOrBlank()) {
+            val sourceForReextract = download.sourceUrl ?: download.url
+            try {
+                val freshUrl = extractFacebook(sourceForReextract)
+                    ?.let { it.videoUrlNoWatermark ?: it.videoUrl }
+                if (freshUrl != null && freshUrl != download.url) {
+                    Log.d(TAG, "Facebook: got fresh CDN URL for download")
+                    dao.updateDownload(downloadingEntity.copy(url = freshUrl))
+                    downloadingEntity.copy(url = freshUrl)
+                } else {
+                    downloadingEntity
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Facebook re-extraction failed, using stored URL", e)
+                downloadingEntity
+            }
+        } else {
+            downloadingEntity
+        }
+
         try {
-            executeDownload(context, downloadingEntity)
+            executeDownload(context, finalEntity)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -178,13 +217,36 @@ object DownloadEngine {
             return@withContext
         }
 
-        val isFacebookSource = download.sourceUrl?.let {
-            it.contains("facebook.com") || it.contains("fb.watch") || it.contains("fbcdn") || it.contains("scontent")
-        } ?: false
+        val sourceUrl = download.sourceUrl ?: ""
+        val downloadUrl = download.url ?: ""
+        val isYoutubeSource = sourceUrl.contains("youtube.com") || sourceUrl.contains("youtu.be")
+        val isFacebookSource = sourceUrl.contains("facebook.com") || sourceUrl.contains("fb.watch") || sourceUrl.contains("fb.com") ||
+            downloadUrl.contains("fbcdn") || downloadUrl.contains("scontent")
 
-        if (isFacebookSource && !download.url.isNullOrBlank() && !download.customHeaders.isNullOrBlank()) {
-            Log.d(TAG, "Facebook detected — using OkHttp direct download (yt-dlp execute() fails for FB)")
-        } else if (!download.sourceUrl.isNullOrBlank()) {
+        val hasDirectUrl = !download.url.isNullOrBlank()
+        val hasHeaders = !download.customHeaders.isNullOrBlank()
+
+        Log.d(TAG, "executeDownload: url='${download.url}' sourceUrl='$sourceUrl' platform=${if (isYoutubeSource) "youtube" else if (isFacebookSource) "facebook" else "other"} hasDirectUrl=$hasDirectUrl")
+
+        // YouTube uses yt-dlp
+        if (isYoutubeSource) {
+            ytDlpDownload(context, download)
+            return@withContext
+        }
+
+        // Facebook: if we have a direct CDN URL, download via OkHttp (already refreshed in startDownloadSuspend)
+        // Only fall back to yt-dlp when extraction didn't find a direct URL
+        if (isFacebookSource && !hasDirectUrl) {
+            Log.d(TAG, "Facebook without direct URL, using yt-dlp fallback")
+            ytDlpDownload(context, download)
+            return@withContext
+        }
+
+        // For all other extractors that found a direct CDN URL: use OkHttp direct download
+        // This includes TikTok, Instagram, Twitter, Reddit, Pinterest, etc.
+        if (hasDirectUrl) {
+            Log.d(TAG, "Using OkHttp direct download for ${download.sourceUrl ?: download.url}")
+        } else {
             ytDlpDownload(context, download)
             return@withContext
         }
@@ -441,21 +503,25 @@ object DownloadEngine {
     private suspend fun ytDlpDownload(
         context: Context,
         download: DownloadEntity
-    ) = withContext(Dispatchers.IO + NonCancellable) {
+    ) = withContext(Dispatchers.IO) {
         val db = AppDatabase.getDatabase(context)
         val dao = db.downloadDao()
         val file = File(download.filepath)
 
-        dao.updateDownload(download.copy(status = "DOWNLOADING", errorMessage = null))
+        dao.updateDownload(download.copy(status = "DOWNLOADING", errorMessage = null, downloadedBytes = 0, speed = 0))
 
         try {
-            YoutubeDL.getInstance().updateYoutubeDL(context)
-            Log.d(TAG, "yt-dlp updated to latest version")
+            withTimeout(30_000L) {
+                YoutubeDL.getInstance().updateYoutubeDL(context)
+                Log.d(TAG, "yt-dlp updated to latest version")
+            }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            Log.w(TAG, "yt-dlp update timed out, using bundled version")
         } catch (e: Exception) {
             Log.w(TAG, "yt-dlp update failed, using bundled version", e)
         }
 
-        val request = YoutubeDLRequest(download.sourceUrl!!)
+        val request = YoutubeDLRequest(download.sourceUrl ?: download.url)
         val parentDir = file.parent ?: ""
         val fileNameWithoutExt = file.nameWithoutExtension
         request.addOption("-o", "$parentDir/$fileNameWithoutExt.%(ext)s")
@@ -466,7 +532,6 @@ object DownloadEngine {
         request.addOption("--extractor-retries", "3")
         request.addOption("--retries", "5")
 
-        // Apply network settings from preferences
         val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         if (prefs.getBoolean("rate_limit", false)) {
             val maxRate = prefs.getString("max_rate", "1000") ?: "1000"
@@ -498,35 +563,27 @@ object DownloadEngine {
         val lastProgress = AtomicLong(0L)
 
         val progressJob = launch {
-            var prevProgress = 0L
-            var prevTime = System.currentTimeMillis()
             while (isActive) {
-                delay(500)
-                val current = dao.getDownloadById(download.id)
-                if (current != null && current.status == "DOWNLOADING") {
-                    val now = System.currentTimeMillis()
-                    val currentProgress = lastProgress.get()
-                    val elapsed = (now - prevTime) / 1000f
-                    val speed = if (elapsed > 0 && currentProgress >= prevProgress) {
-                        ((currentProgress - prevProgress) / elapsed).toLong()
-                    } else 0L
-                    prevProgress = currentProgress
-                    prevTime = now
-                    dao.updateDownload(current.copy(
-                        downloadedBytes = currentProgress,
-                        speed = speed
-                    ))
-                }
+                try {
+                    delay(500)
+                    val bytes = lastProgress.get()
+                    val current = dao.getDownloadById(download.id)
+                    if (current != null && (current.status == "DOWNLOADING" || current.status == "QUEUED")) {
+                        dao.updateDownload(current.copy(downloadedBytes = bytes, speed = 0))
+                    }
+                    } catch (e: CancellationException) { throw e
+                    } catch (_: Exception) { }
             }
         }
 
         try {
-            YoutubeDL.getInstance().execute(request, object : DownloadProgressCallback {
-                override fun onProgressUpdate(progress: Float, etaInSeconds: Long, line: String?) {
-                    lastProgress.set((progress * 1_000_000).toLong())
-                }
-            })
-
+            withTimeout(180_000L) {
+                YoutubeDL.getInstance().execute(request, object : DownloadProgressCallback {
+                    override fun onProgressUpdate(progress: Float, etaInSeconds: Long, line: String?) {
+                        lastProgress.set((progress * 10_000_000).toLong())
+                    }
+                })
+            }
             progressJob.cancel()
 
             val dirFile = File(parentDir)
@@ -554,21 +611,25 @@ object DownloadEngine {
                 )
             )
             Log.d(TAG, "yt-dlp download complete: ${download.filename}")
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            progressJob.cancel()
-            throw e
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            Log.e(TAG, "yt-dlp timed out after 180s", e)
+            dao.updateDownload(
+                download.copy(
+                    status = "FAILED",
+                    errorMessage = "yt-dlp timed out. The video may be private or require a login."
+                )
+            )
         } catch (e: InterruptedException) {
-            progressJob.cancel()
             Thread.currentThread().interrupt()
-            throw e
+            dao.updateDownload(
+                download.copy(
+                    status = "FAILED",
+                    errorMessage = "Download was interrupted"
+                )
+            )
         } catch (e: Exception) {
-            progressJob.cancel()
             Log.e(TAG, "yt-dlp download failed", e)
-            val errorMsg = e.message
-                ?: e.cause?.message
-                ?: e.cause?.cause?.message
-                ?: e.toString()
-            Log.e(TAG, "Full error: $errorMsg")
+            val errorMsg = e.message ?: e.cause?.message ?: e.cause?.cause?.message ?: e.toString()
             dao.updateDownload(
                 download.copy(
                     status = "FAILED",

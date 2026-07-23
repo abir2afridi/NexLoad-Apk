@@ -3,6 +3,8 @@ package com.example
 import android.app.Application
 import android.os.Environment
 import android.util.Log
+import com.example.data.download.FacebookCookieStore
+import com.example.data.download.InstagramCookieStore
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.ffmpeg.FFmpeg
 import java.io.File
@@ -23,6 +25,9 @@ class NexLoadApp : Application() {
         } catch (e: Exception) {
             Log.e("NexLoadApp", "Failed to initialize yt-dlp/ffmpeg", e)
         }
+
+        FacebookCookieStore.init(this)
+        InstagramCookieStore.init(this)
 
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
