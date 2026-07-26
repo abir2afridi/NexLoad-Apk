@@ -55,30 +55,68 @@ fun LookAndFeelScreen(
     val hourColor by viewModel.hourColor.collectAsState()
     val minuteColor by viewModel.minuteColor.collectAsState()
     val secondColor by viewModel.secondColor.collectAsState()
+    val selectedFontFamily by viewModel.selectedFontFamily.collectAsState()
+    val appBarStyle by viewModel.appBarStyle.collectAsState()
+    val animationSpeed by viewModel.animationSpeed.collectAsState()
+    val dashboardBgStyle by viewModel.dashboardBgStyle.collectAsState()
+    val surfaceTintIntensity by viewModel.surfaceTintIntensity.collectAsState()
 
     var showCustomColorPicker by remember { mutableStateOf(false) }
     var showThemeModeDialog by remember { mutableStateOf(false) }
     var showNavLabelDialog by remember { mutableStateOf(false) }
     var showBrowserToggleDialog by remember { mutableStateOf(false) }
-    var showClockColorDialog by remember { mutableStateOf<String?>(null) } // "hour", "minute", "second"
+    var showClockColorDialog by remember { mutableStateOf<String?>(null) }
+    var showFontFamilyDialog by remember { mutableStateOf(false) }
+    var showAppBarStyleDialog by remember { mutableStateOf(false) }
+    var showDashBgStyleDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = "Look & feel",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
+            when (appBarStyle) {
+                1 -> CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Look & feel",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+                2 -> TopAppBar(
+                    title = {
+                        Text(
+                            text = "Look & feel",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+                else -> LargeTopAppBar(
+                    title = {
+                        Text(
+                            text = "Look & feel",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+            }
         },
         content = { paddingValues ->
             Column(
@@ -179,6 +217,18 @@ fun LookAndFeelScreen(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
+                    SliderSetting(
+                        icon = Icons.Outlined.Opacity,
+                        title = "Surface Tint",
+                        value = surfaceTintIntensity,
+                        onValueChange = { viewModel.surfaceTintIntensity.value = it },
+                        valueRange = 0f..1f,
+                        steps = 10,
+                        displayValue = "${(surfaceTintIntensity * 100).toInt()}%"
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
                     SettingSwitchRow(
                         icon = Icons.Outlined.Layers,
                         title = "Compact layout",
@@ -198,6 +248,33 @@ fun LookAndFeelScreen(
                     )
                 }
 
+                // Settings Section: Typography & Animation
+                SectionHeader("Typography & Animation")
+                SettingsCard {
+                    SettingDetailRow(
+                        icon = Icons.Outlined.FontDownload,
+                        title = "Font family",
+                        subtitle = selectedFontFamily,
+                        onClick = { showFontFamilyDialog = true }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SliderSetting(
+                        icon = Icons.Outlined.Speed,
+                        title = "Animation speed",
+                        value = animationSpeed,
+                        onValueChange = { viewModel.animationSpeed.value = it },
+                        valueRange = 0.5f..1.5f,
+                        steps = 2,
+                        displayValue = when(animationSpeed) {
+                            0.5f -> "Fast"
+                            1.0f -> "Normal"
+                            else -> "Relaxed"
+                        }
+                    )
+                }
+
                 // Settings Section: Dashboard & Navigation
                 SectionHeader("Dashboard & Navigation")
                 SettingsCard {
@@ -210,6 +287,32 @@ fun LookAndFeelScreen(
                             else -> "Icons only"
                         },
                         onClick = { showNavLabelDialog = true }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SettingDetailRow(
+                        icon = Icons.Outlined.WebAsset,
+                        title = "App bar style",
+                        subtitle = when (appBarStyle) {
+                            0 -> "Large (Expanding)"
+                            1 -> "Center Aligned"
+                            else -> "Small (Compact)"
+                        },
+                        onClick = { showAppBarStyleDialog = true }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SettingDetailRow(
+                        icon = Icons.Outlined.DashboardCustomize,
+                        title = "Dashboard background",
+                        subtitle = when (dashboardBgStyle) {
+                            1 -> "Subtle Gradient"
+                            2 -> "Glassy Effect"
+                            else -> "Default Theme"
+                        },
+                        onClick = { showDashBgStyleDialog = true }
                     )
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -350,134 +453,36 @@ fun LookAndFeelScreen(
             }
         )
     }
-}
 
-@Composable
-private fun ClockColorChip(label: String, colorHex: String, onClick: () -> Unit) {
-    val color = remember(colorHex) {
-        try { Color(android.graphics.Color.parseColor(if (colorHex == "Default") "#808080" else colorHex)) }
-        catch (e: Exception) { Color.Gray }
+    if (showFontFamilyDialog) {
+        ChoiceDialog(
+            title = "Font family",
+            options = listOf("Default", "Sans-Serif", "Serif", "Monospace"),
+            currentIndex = listOf("Default", "Sans-Serif", "Serif", "Monospace").indexOf(selectedFontFamily),
+            onDismiss = { showFontFamilyDialog = false },
+            onConfirm = { viewModel.selectedFontFamily.value = listOf("Default", "Sans-Serif", "Serif", "Monospace")[it] }
+        )
     }
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.size(32.dp),
-        shape = CircleShape,
-        color = color,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = if (colorHex == "Default") Color.White else Color.Transparent)
-        }
+
+    if (showAppBarStyleDialog) {
+        ChoiceDialog(
+            title = "App bar style",
+            options = listOf("Large (Expanding)", "Center Aligned", "Small (Compact)"),
+            currentIndex = appBarStyle,
+            onDismiss = { showAppBarStyleDialog = false },
+            onConfirm = { viewModel.appBarStyle.value = it }
+        )
     }
-}
 
-@Composable
-private fun ChoiceDialog(
-    title: String,
-    options: List<String>,
-    currentIndex: Int,
-    onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column {
-                options.forEachIndexed { index, option ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onConfirm(index); onDismiss() }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(option)
-                        if (index == currentIndex) {
-                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun AdvancedColorPicker(
-    title: String,
-    currentColor: String,
-    onDismiss: () -> Unit,
-    onColorSelected: (String) -> Unit
-) {
-    var hexInput by remember { mutableStateOf(if (currentColor == "Default") "#" else currentColor) }
-    val presets = listOf(
-        "#009688", "#2196F3", "#FF9800", "#43A047", "#E53935", 
-        "#8E24AA", "#D81B60", "#3949AB", "#00ACC1", "#FFB300",
-        "#C0CA33", "#F4511E", "#6D4C41", "#757575", "#0061A4"
-    )
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Select a preset or enter a hex code.")
-                
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    presets.forEach { colorHex ->
-                        Surface(
-                            modifier = Modifier.size(36.dp),
-                            shape = CircleShape,
-                            color = Color(android.graphics.Color.parseColor(colorHex)),
-                            onClick = { onColorSelected(colorHex) },
-                            border = if (hexInput == colorHex) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
-                        ) {}
-                    }
-                    Surface(
-                        modifier = Modifier.size(36.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        onClick = { onColorSelected("Default") },
-                        border = if (currentColor == "Default") BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
-                    ) {
-                        Icon(Icons.Default.Refresh, null, modifier = Modifier.padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-
-                OutlinedTextField(
-                    value = hexInput,
-                    onValueChange = { if (it.length <= 7) hexInput = it.uppercase() },
-                    label = { Text("Hex Code") },
-                    placeholder = { Text("#000000") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
-        },
-        confirmButton = {
-            Row {
-                TextButton(onClick = { onColorSelected("Default") }) { Text("Reset") }
-                Button(
-                    onClick = { if (hexInput.length == 7) onColorSelected(hexInput) },
-                    enabled = hexInput.length == 7
-                ) {
-                    Text("Apply")
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
+    if (showDashBgStyleDialog) {
+        ChoiceDialog(
+            title = "Dashboard background",
+            options = listOf("Default Theme", "Subtle Gradient", "Glassy Effect"),
+            currentIndex = dashboardBgStyle,
+            onDismiss = { showDashBgStyleDialog = false },
+            onConfirm = { viewModel.dashboardBgStyle.value = it }
+        )
+    }
 }
 
 @Composable
@@ -800,6 +805,134 @@ fun ThemeSchemeItem(
             }
         }
     }
+}
+
+@Composable
+private fun ClockColorChip(label: String, colorHex: String, onClick: () -> Unit) {
+    val color = remember(colorHex) {
+        try { Color(android.graphics.Color.parseColor(if (colorHex == "Default") "#808080" else colorHex)) }
+        catch (e: Exception) { Color.Gray }
+    }
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(32.dp),
+        shape = CircleShape,
+        color = color,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = if (colorHex == "Default") Color.White else Color.Transparent)
+        }
+    }
+}
+
+@Composable
+private fun ChoiceDialog(
+    title: String,
+    options: List<String>,
+    currentIndex: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                options.forEachIndexed { index, option ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onConfirm(index); onDismiss() }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(option)
+                        if (index == currentIndex) {
+                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AdvancedColorPicker(
+    title: String,
+    currentColor: String,
+    onDismiss: () -> Unit,
+    onColorSelected: (String) -> Unit
+) {
+    var hexInput by remember { mutableStateOf(if (currentColor == "Default") "#" else currentColor) }
+    val presets = listOf(
+        "#009688", "#2196F3", "#FF9800", "#43A047", "#E53935", 
+        "#8E24AA", "#D81B60", "#3949AB", "#00ACC1", "#FFB300",
+        "#C0CA33", "#F4511E", "#6D4C41", "#757575", "#0061A4"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Select a preset or enter a hex code.")
+                
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    presets.forEach { colorHex ->
+                        Surface(
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape,
+                            color = Color(android.graphics.Color.parseColor(colorHex)),
+                            onClick = { onColorSelected(colorHex) },
+                            border = if (hexInput == colorHex) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                        ) {}
+                    }
+                    Surface(
+                        modifier = Modifier.size(36.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        onClick = { onColorSelected("Default") },
+                        border = if (currentColor == "Default") BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                    ) {
+                        Icon(Icons.Default.Refresh, null, modifier = Modifier.padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                OutlinedTextField(
+                    value = hexInput,
+                    onValueChange = { if (it.length <= 7) hexInput = it.uppercase() },
+                    label = { Text("Hex Code") },
+                    placeholder = { Text("#000000") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Row {
+                TextButton(onClick = { onColorSelected("Default") }) { Text("Reset") }
+                Button(
+                    onClick = { if (hexInput.length == 7) onColorSelected(hexInput) },
+                    enabled = hexInput.length == 7
+                ) {
+                    Text("Apply")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable

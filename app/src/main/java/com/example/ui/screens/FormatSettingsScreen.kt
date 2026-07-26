@@ -58,6 +58,7 @@ fun FormatSettingsScreen(
     val isMergeMultiAudio by viewModel.isMergeMultiAudio.collectAsState()
     val isSubtitle by viewModel.isSubtitle.collectAsState()
     val isEmbedSubtitle by viewModel.isEmbedSubtitle.collectAsState()
+    val appBarStyle by viewModel.appBarStyle.collectAsState()
 
     var showAudioFormatDialog by remember { mutableStateOf(false) }
     var showAudioQualityDialog by remember { mutableStateOf(false) }
@@ -71,20 +72,50 @@ fun FormatSettingsScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = "Format",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
+            when (appBarStyle) {
+                1 -> CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Format",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+                2 -> TopAppBar(
+                    title = {
+                        Text(
+                            text = "Format",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+                else -> LargeTopAppBar(
+                    title = {
+                        Text(
+                            text = "Format",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+            }
         },
         content = { paddingValues ->
             Column(

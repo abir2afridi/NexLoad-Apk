@@ -113,10 +113,13 @@ class MainActivity : FragmentActivity() {
             val isMonochrome by viewModel.isMonochrome.collectAsState()
             val fontScale by viewModel.fontScale.collectAsState()
             val cornerRoundness by viewModel.cornerRoundness.collectAsState()
+            val selectedFontFamily by viewModel.selectedFontFamily.collectAsState()
+            val surfaceTintIntensity by viewModel.surfaceTintIntensity.collectAsState()
             val browserTogglePosition by viewModel.browserTogglePosition.collectAsState()
             val navLabelVisibility by viewModel.navLabelVisibility.collectAsState()
             val isCompactLayout by viewModel.isCompactLayout.collectAsState()
             val isGlassmorphism by viewModel.isGlassmorphism.collectAsState()
+            val appBarStyle by viewModel.appBarStyle.collectAsState()
 
             val darkTheme = when (selectedThemeMode) {
                 "Dark" -> true
@@ -131,13 +134,15 @@ class MainActivity : FragmentActivity() {
                 dynamicColor = isDynamicColor,
                 isMonochrome = isMonochrome,
                 fontScale = fontScale,
-                cornerRoundness = cornerRoundness
+                cornerRoundness = cornerRoundness,
+                selectedFontFamily = selectedFontFamily,
+                surfaceTintIntensity = surfaceTintIntensity
             ) {
                 Crossfade(targetState = showLoadingScreen, label = "splash_transition") { loading ->
                     if (loading) {
                         LoadingScreen()
                     } else {
-                        MainContent(viewModel, browserTogglePosition, navLabelVisibility, isCompactLayout, isGlassmorphism)
+                        MainContent(viewModel, browserTogglePosition, navLabelVisibility, isCompactLayout, isGlassmorphism, appBarStyle)
                     }
                 }
             }
@@ -150,7 +155,8 @@ class MainActivity : FragmentActivity() {
         browserTogglePosition: String,
         navLabelVisibility: Int,
         isCompactLayout: Boolean,
-        isGlassmorphism: Boolean
+        isGlassmorphism: Boolean,
+        appBarStyle: Int
     ) {
         var currentTab by remember { mutableStateOf("Home") }
         var isNavCollapsed by remember { mutableStateOf(false) }

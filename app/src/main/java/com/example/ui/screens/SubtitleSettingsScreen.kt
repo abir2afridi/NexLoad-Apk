@@ -38,15 +38,55 @@ fun SubtitleSettingsScreen(
     var showLangDialog by remember { mutableStateOf(false) }
     var showConvertDialog by remember { mutableStateOf(false) }
     var showEmbedConfirm by remember { mutableStateOf(false) }
+    val appBarStyle by viewModel.appBarStyle.collectAsState()
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
-                title = { Text("Subtitle", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
-                scrollBehavior = scrollBehavior,
-            )
+            when (appBarStyle) {
+                1 -> CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Subtitle",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+                2 -> TopAppBar(
+                    title = {
+                        Text(
+                            text = "Subtitle",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+                else -> LargeTopAppBar(
+                    title = {
+                        Text(
+                            text = "Subtitle",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+            }
         },
         content = { paddingValues ->
             Column(

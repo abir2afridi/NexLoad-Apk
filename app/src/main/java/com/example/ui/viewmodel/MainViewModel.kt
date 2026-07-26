@@ -99,6 +99,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isCompactLayout = MutableStateFlow(settingsPrefs.getBoolean("compact_layout", false))
     val isGlassmorphism = MutableStateFlow(settingsPrefs.getBoolean("glassmorphism", false))
     val isGreetingEnabled = MutableStateFlow(settingsPrefs.getBoolean("greeting_enabled", true))
+    val selectedFontFamily = MutableStateFlow(settingsPrefs.getString("font_family", "Default") ?: "Default")
+    val appBarStyle = MutableStateFlow(settingsPrefs.getInt("app_bar_style", 0)) // 0: Large, 1: Center, 2: Small
+    val animationSpeed = MutableStateFlow(settingsPrefs.getFloat("anim_speed", 1.0f))
+    val dashboardBgStyle = MutableStateFlow(settingsPrefs.getInt("dash_bg_style", 0)) // 0: Default, 1: Gradient, 2: Glassy
+    val surfaceTintIntensity = MutableStateFlow(settingsPrefs.getFloat("surface_tint", 0.0f))
     val downloadFolderPath = MutableStateFlow(
         settingsPrefs.getString("download_path", null)
             ?: defaultDownloadPath(application)
@@ -265,6 +270,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persistFlow(isCompactLayout)      { putBoolean("compact_layout", it) }
         persistFlow(isGlassmorphism)      { putBoolean("glassmorphism", it) }
         persistFlow(isGreetingEnabled)    { putBoolean("greeting_enabled", it) }
+        persistFlow(selectedFontFamily)   { putString("font_family", it) }
+        persistFlow(appBarStyle)          { putInt("app_bar_style", it) }
+        persistFlow(animationSpeed)       { putFloat("anim_speed", it) }
+        persistFlow(dashboardBgStyle)     { putInt("dash_bg_style", it) }
+        persistFlow(surfaceTintIntensity) { putFloat("surface_tint", it) }
         persistFlow(downloadFolderPath)   { putString("download_path", it) }
 
         // Persist network settings

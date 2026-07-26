@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -68,10 +69,12 @@ fun MyApplicationTheme(
     isMonochrome: Boolean = false,
     fontScale: Float = 1.0f,
     cornerRoundness: Float = 1.0f,
+    selectedFontFamily: String = "Default",
+    surfaceTintIntensity: Float = 0.0f,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val colorScheme = when {
+    var colorScheme = when {
         isMonochrome -> {
             if (darkTheme) {
                 darkColorScheme(
@@ -157,6 +160,15 @@ fun MyApplicationTheme(
         }
     }
 
+    // Apply surface tint intensity
+    if (surfaceTintIntensity > 0f) {
+        val tint = colorScheme.primary
+        colorScheme = colorScheme.copy(
+            surface = lerp(colorScheme.surface, tint, surfaceTintIntensity * 0.15f),
+            surfaceVariant = lerp(colorScheme.surfaceVariant, tint, surfaceTintIntensity * 0.25f),
+        )
+    }
+
     // Apply corner roundness to shapes
     val shapes = Shapes(
         extraSmall = RoundedCornerShape((4 * cornerRoundness).dp),
@@ -166,20 +178,27 @@ fun MyApplicationTheme(
         extraLarge = RoundedCornerShape((28 * cornerRoundness).dp)
     )
 
+    val fontFamily = when (selectedFontFamily) {
+        "Sans-Serif" -> FontFamily.SansSerif
+        "Serif" -> FontFamily.Serif
+        "Monospace" -> FontFamily.Monospace
+        else -> FontFamily.Default
+    }
+
     // Apply font scale to typography
     val typography = Typography.copy(
-        bodyLarge = Typography.bodyLarge.copy(fontSize = (Typography.bodyLarge.fontSize.value * fontScale).sp),
-        bodyMedium = Typography.bodyMedium.copy(fontSize = (Typography.bodyMedium.fontSize.value * fontScale).sp),
-        bodySmall = Typography.bodySmall.copy(fontSize = (Typography.bodySmall.fontSize.value * fontScale).sp),
-        titleLarge = Typography.titleLarge.copy(fontSize = (Typography.titleLarge.fontSize.value * fontScale).sp),
-        titleMedium = Typography.titleMedium.copy(fontSize = (Typography.titleMedium.fontSize.value * fontScale).sp),
-        titleSmall = Typography.titleSmall.copy(fontSize = (Typography.titleSmall.fontSize.value * fontScale).sp),
-        headlineLarge = Typography.headlineLarge.copy(fontSize = (Typography.headlineLarge.fontSize.value * fontScale).sp),
-        headlineMedium = Typography.headlineMedium.copy(fontSize = (Typography.headlineMedium.fontSize.value * fontScale).sp),
-        headlineSmall = Typography.headlineSmall.copy(fontSize = (Typography.headlineSmall.fontSize.value * fontScale).sp),
-        labelLarge = Typography.labelLarge.copy(fontSize = (Typography.labelLarge.fontSize.value * fontScale).sp),
-        labelMedium = Typography.labelMedium.copy(fontSize = (Typography.labelMedium.fontSize.value * fontScale).sp),
-        labelSmall = Typography.labelSmall.copy(fontSize = (Typography.labelSmall.fontSize.value * fontScale).sp)
+        bodyLarge = Typography.bodyLarge.copy(fontSize = (Typography.bodyLarge.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        bodyMedium = Typography.bodyMedium.copy(fontSize = (Typography.bodyMedium.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        bodySmall = Typography.bodySmall.copy(fontSize = (Typography.bodySmall.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        titleLarge = Typography.titleLarge.copy(fontSize = (Typography.titleLarge.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        titleMedium = Typography.titleMedium.copy(fontSize = (Typography.titleMedium.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        titleSmall = Typography.titleSmall.copy(fontSize = (Typography.titleSmall.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        headlineLarge = Typography.headlineLarge.copy(fontSize = (Typography.headlineLarge.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        headlineMedium = Typography.headlineMedium.copy(fontSize = (Typography.headlineMedium.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        headlineSmall = Typography.headlineSmall.copy(fontSize = (Typography.headlineSmall.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        labelLarge = Typography.labelLarge.copy(fontSize = (Typography.labelLarge.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        labelMedium = Typography.labelMedium.copy(fontSize = (Typography.labelMedium.fontSize.value * fontScale).sp, fontFamily = fontFamily),
+        labelSmall = Typography.labelSmall.copy(fontSize = (Typography.labelSmall.fontSize.value * fontScale).sp, fontFamily = fontFamily)
     )
 
     MaterialTheme(
@@ -187,5 +206,14 @@ fun MyApplicationTheme(
         typography = typography,
         shapes = shapes,
         content = content
+    )
+}
+
+private fun lerp(start: Color, stop: Color, fraction: Float): Color {
+    return Color(
+        red = start.red + (stop.red - start.red) * fraction,
+        green = start.green + (stop.green - start.green) * fraction,
+        blue = start.blue + (stop.blue - start.blue) * fraction,
+        alpha = start.alpha + (stop.alpha - start.alpha) * fraction
     )
 }

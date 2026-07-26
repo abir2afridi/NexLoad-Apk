@@ -16,6 +16,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -98,6 +99,8 @@ fun DashboardTab(
     val hourColor by viewModel.hourColor.collectAsState()
     val minuteColor by viewModel.minuteColor.collectAsState()
     val secondColor by viewModel.secondColor.collectAsState()
+    val dashboardBgStyle by viewModel.dashboardBgStyle.collectAsState()
+    val isGlassmorphism by viewModel.isGlassmorphism.collectAsState()
 
     var linkText by remember { mutableStateOf("") }
 
@@ -273,10 +276,25 @@ fun DashboardTab(
         }
     }
 
+    val backgroundModifier = when (dashboardBgStyle) {
+        1 -> Modifier.background(
+            Brush.verticalGradient(
+                colors = listOf(
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    MaterialTheme.colorScheme.background
+                )
+            )
+        )
+        2 -> Modifier.background(
+            if (isSystemInDarkTheme()) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.5f)
+        )
+        else -> Modifier.background(MaterialTheme.colorScheme.background)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .then(backgroundModifier)
             .statusBarsPadding()
     ) {
         // Fixed header (non-scrolling)
