@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -29,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun LookAndFeelScreen(
     onBack: () -> Unit,
@@ -44,8 +45,22 @@ fun LookAndFeelScreen(
     val cornerRoundness by viewModel.cornerRoundness.collectAsState()
     val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
 
+    val navLabelVisibility by viewModel.navLabelVisibility.collectAsState()
+    val isCompactLayout by viewModel.isCompactLayout.collectAsState()
+    val isGlassmorphism by viewModel.isGlassmorphism.collectAsState()
+    val isGreetingEnabled by viewModel.isGreetingEnabled.collectAsState()
+    val browserTogglePosition by viewModel.browserTogglePosition.collectAsState()
+    val isForceDarkWeb by viewModel.isForceDarkWeb.collectAsState()
+    val isTime24Hour by viewModel.isTime24Hour.collectAsState()
+    val hourColor by viewModel.hourColor.collectAsState()
+    val minuteColor by viewModel.minuteColor.collectAsState()
+    val secondColor by viewModel.secondColor.collectAsState()
+
     var showCustomColorPicker by remember { mutableStateOf(false) }
     var showThemeModeDialog by remember { mutableStateOf(false) }
+    var showNavLabelDialog by remember { mutableStateOf(false) }
+    var showBrowserToggleDialog by remember { mutableStateOf(false) }
+    var showClockColorDialog by remember { mutableStateOf<String?>(null) } // "hour", "minute", "second"
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -161,6 +176,100 @@ fun LookAndFeelScreen(
                         steps = 8,
                         displayValue = "${(cornerRoundness * 100).toInt()}%"
                     )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SettingSwitchRow(
+                        icon = Icons.Outlined.Layers,
+                        title = "Compact layout",
+                        subtitle = "Reduce padding for higher density",
+                        checked = isCompactLayout,
+                        onCheckedChange = { viewModel.isCompactLayout.value = it }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SettingSwitchRow(
+                        icon = Icons.Outlined.BlurOn,
+                        title = "Glassmorphism",
+                        subtitle = "Translucent frosted effects",
+                        checked = isGlassmorphism,
+                        onCheckedChange = { viewModel.isGlassmorphism.value = it }
+                    )
+                }
+
+                // Settings Section: Dashboard & Navigation
+                SectionHeader("Dashboard & Navigation")
+                SettingsCard {
+                    SettingDetailRow(
+                        icon = Icons.AutoMirrored.Outlined.Label,
+                        title = "Navigation labels",
+                        subtitle = when (navLabelVisibility) {
+                            0 -> "Always visible"
+                            1 -> "Selected only"
+                            else -> "Icons only"
+                        },
+                        onClick = { showNavLabelDialog = true }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SettingSwitchRow(
+                        icon = Icons.Outlined.WavingHand,
+                        title = "Show greeting",
+                        subtitle = "Welcome message on dashboard",
+                        checked = isGreetingEnabled,
+                        onCheckedChange = { viewModel.isGreetingEnabled.value = it }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SettingSwitchRow(
+                        icon = Icons.Outlined.MoreTime,
+                        title = "24-hour clock",
+                        subtitle = if (isTime24Hour) "Use 24-hour format" else "Use 12-hour format",
+                        checked = isTime24Hour,
+                        onCheckedChange = { viewModel.isTime24Hour.value = it }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(Icons.Outlined.Palette, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                        Text("Clock segments", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ClockColorChip("H", hourColor) { showClockColorDialog = "hour" }
+                            ClockColorChip("M", minuteColor) { showClockColorDialog = "minute" }
+                            ClockColorChip("S", secondColor) { showClockColorDialog = "second" }
+                        }
+                    }
+                }
+
+                // Settings Section: Browser UI
+                SectionHeader("Browser UI")
+                SettingsCard {
+                    SettingDetailRow(
+                        icon = Icons.Outlined.ViewStream,
+                        title = "Toolbar position",
+                        subtitle = browserTogglePosition,
+                        onClick = { showBrowserToggleDialog = true }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    SettingSwitchRow(
+                        icon = Icons.Outlined.Nightlight,
+                        title = "Force dark web",
+                        subtitle = "Render all websites dark",
+                        checked = isForceDarkWeb,
+                        onCheckedChange = { viewModel.isForceDarkWeb.value = it }
+                    )
                 }
 
                 // Miscellaneous
@@ -180,7 +289,9 @@ fun LookAndFeelScreen(
     )
 
     if (showCustomColorPicker) {
-        CustomColorDialog(
+        AdvancedColorPicker(
+            title = "Custom Accent Color",
+            currentColor = selectedAccentColor,
             onDismiss = { showCustomColorPicker = false },
             onColorSelected = { hex ->
                 viewModel.selectedAccentColor.value = hex
@@ -196,6 +307,177 @@ fun LookAndFeelScreen(
             onConfirm = { viewModel.selectedThemeMode.value = it }
         )
     }
+
+    if (showNavLabelDialog) {
+        ChoiceDialog(
+            title = "Navigation labels",
+            options = listOf("Always", "Selected", "Hidden"),
+            currentIndex = navLabelVisibility,
+            onDismiss = { showNavLabelDialog = false },
+            onConfirm = { viewModel.navLabelVisibility.value = it }
+        )
+    }
+
+    if (showBrowserToggleDialog) {
+        val positions = listOf("Bottom Center", "Bottom Left", "Bottom Right")
+        ChoiceDialog(
+            title = "Toolbar position",
+            options = positions,
+            currentIndex = positions.indexOf(browserTogglePosition).coerceAtLeast(0),
+            onDismiss = { showBrowserToggleDialog = false },
+            onConfirm = { viewModel.browserTogglePosition.value = positions[it] }
+        )
+    }
+
+    if (showClockColorDialog != null) {
+        val type = showClockColorDialog!!
+        val currentColor = when(type) {
+            "hour" -> hourColor
+            "minute" -> minuteColor
+            else -> secondColor
+        }
+        AdvancedColorPicker(
+            title = "${type.replaceFirstChar { it.uppercase() }} color",
+            currentColor = currentColor,
+            onDismiss = { showClockColorDialog = null },
+            onColorSelected = {
+                when(type) {
+                    "hour" -> viewModel.hourColor.value = it
+                    "minute" -> viewModel.minuteColor.value = it
+                    "second" -> viewModel.secondColor.value = it
+                }
+                showClockColorDialog = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun ClockColorChip(label: String, colorHex: String, onClick: () -> Unit) {
+    val color = remember(colorHex) {
+        try { Color(android.graphics.Color.parseColor(if (colorHex == "Default") "#808080" else colorHex)) }
+        catch (e: Exception) { Color.Gray }
+    }
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(32.dp),
+        shape = CircleShape,
+        color = color,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = if (colorHex == "Default") Color.White else Color.Transparent)
+        }
+    }
+}
+
+@Composable
+private fun ChoiceDialog(
+    title: String,
+    options: List<String>,
+    currentIndex: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                options.forEachIndexed { index, option ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onConfirm(index); onDismiss() }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(option)
+                        if (index == currentIndex) {
+                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AdvancedColorPicker(
+    title: String,
+    currentColor: String,
+    onDismiss: () -> Unit,
+    onColorSelected: (String) -> Unit
+) {
+    var hexInput by remember { mutableStateOf(if (currentColor == "Default") "#" else currentColor) }
+    val presets = listOf(
+        "#009688", "#2196F3", "#FF9800", "#43A047", "#E53935", 
+        "#8E24AA", "#D81B60", "#3949AB", "#00ACC1", "#FFB300",
+        "#C0CA33", "#F4511E", "#6D4C41", "#757575", "#0061A4"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Select a preset or enter a hex code.")
+                
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    presets.forEach { colorHex ->
+                        Surface(
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape,
+                            color = Color(android.graphics.Color.parseColor(colorHex)),
+                            onClick = { onColorSelected(colorHex) },
+                            border = if (hexInput == colorHex) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                        ) {}
+                    }
+                    Surface(
+                        modifier = Modifier.size(36.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        onClick = { onColorSelected("Default") },
+                        border = if (currentColor == "Default") BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                    ) {
+                        Icon(Icons.Default.Refresh, null, modifier = Modifier.padding(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                OutlinedTextField(
+                    value = hexInput,
+                    onValueChange = { if (it.length <= 7) hexInput = it.uppercase() },
+                    label = { Text("Hex Code") },
+                    placeholder = { Text("#000000") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Row {
+                TextButton(onClick = { onColorSelected("Default") }) { Text("Reset") }
+                Button(
+                    onClick = { if (hexInput.length == 7) onColorSelected(hexInput) },
+                    enabled = hexInput.length == 7
+                ) {
+                    Text("Apply")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
@@ -518,44 +800,6 @@ fun ThemeSchemeItem(
             }
         }
     }
-}
-
-@Composable
-fun CustomColorDialog(
-    onDismiss: () -> Unit,
-    onColorSelected: (String) -> Unit
-) {
-    var hexInput by remember { mutableStateOf("#") }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Custom Color") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Enter a hex color code to generate a custom theme.")
-                OutlinedTextField(
-                    value = hexInput,
-                    onValueChange = { if (it.length <= 7) hexInput = it.uppercase() },
-                    label = { Text("Hex Code") },
-                    placeholder = { Text("#000000") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { if (hexInput.length == 7) onColorSelected(hexInput) },
-                enabled = hexInput.length == 7
-            ) {
-                Text("Apply")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
 }
 
 @Composable

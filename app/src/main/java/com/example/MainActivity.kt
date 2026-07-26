@@ -114,6 +114,9 @@ class MainActivity : FragmentActivity() {
             val fontScale by viewModel.fontScale.collectAsState()
             val cornerRoundness by viewModel.cornerRoundness.collectAsState()
             val browserTogglePosition by viewModel.browserTogglePosition.collectAsState()
+            val navLabelVisibility by viewModel.navLabelVisibility.collectAsState()
+            val isCompactLayout by viewModel.isCompactLayout.collectAsState()
+            val isGlassmorphism by viewModel.isGlassmorphism.collectAsState()
 
             val darkTheme = when (selectedThemeMode) {
                 "Dark" -> true
@@ -134,7 +137,7 @@ class MainActivity : FragmentActivity() {
                     if (loading) {
                         LoadingScreen()
                     } else {
-                        MainContent(viewModel, browserTogglePosition)
+                        MainContent(viewModel, browserTogglePosition, navLabelVisibility, isCompactLayout, isGlassmorphism)
                     }
                 }
             }
@@ -144,7 +147,10 @@ class MainActivity : FragmentActivity() {
     @Composable
     private fun MainContent(
         viewModel: MainViewModel,
-        browserTogglePosition: String
+        browserTogglePosition: String,
+        navLabelVisibility: Int,
+        isCompactLayout: Boolean,
+        isGlassmorphism: Boolean
     ) {
         var currentTab by remember { mutableStateOf("Home") }
         var isNavCollapsed by remember { mutableStateOf(false) }
@@ -253,19 +259,19 @@ class MainActivity : FragmentActivity() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .testTag("bottom_nav_bar"),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                                tonalElevation = 6.dp,
+                                shape = if (isCompactLayout) RoundedCornerShape(16.dp) else CircleShape,
+                                color = if (isGlassmorphism) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                tonalElevation = if (isGlassmorphism) 0.dp else 6.dp,
                                 border = BorderStroke(
                                     width = 0.5.dp,
                                     color = Color.White.copy(alpha = 0.3f)
                                 ),
-                                shadowElevation = 12.dp
+                                shadowElevation = if (isGlassmorphism) 0.dp else 12.dp
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 8.dp, horizontal = 8.dp),
+                                        .padding(vertical = if (isCompactLayout) 4.dp else 8.dp, horizontal = 8.dp),
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -275,6 +281,7 @@ class MainActivity : FragmentActivity() {
                                         filledIcon = Icons.Filled.Home,
                                         outlinedIcon = Icons.Outlined.Home,
                                         label = "Home",
+                                        navLabelVisibility = navLabelVisibility,
                                         modifier = Modifier.testTag("nav_home")
                                     )
                                     FloatingNavItem(
@@ -286,6 +293,7 @@ class MainActivity : FragmentActivity() {
                                         filledIcon = Icons.Filled.Language,
                                         outlinedIcon = Icons.Outlined.Language,
                                         label = "Browser",
+                                        navLabelVisibility = navLabelVisibility,
                                         modifier = Modifier.testTag("nav_browser")
                                     )
                                     FloatingNavItem(
@@ -294,6 +302,7 @@ class MainActivity : FragmentActivity() {
                                         filledIcon = Icons.Filled.CloudDownload,
                                         outlinedIcon = Icons.Outlined.CloudDownload,
                                         label = "Library",
+                                        navLabelVisibility = navLabelVisibility,
                                         modifier = Modifier.testTag("nav_downloads")
                                     )
                                     FloatingNavItem(
@@ -302,6 +311,7 @@ class MainActivity : FragmentActivity() {
                                         filledIcon = Icons.Filled.Settings,
                                         outlinedIcon = Icons.Outlined.Settings,
                                         label = "Settings",
+                                        navLabelVisibility = navLabelVisibility,
                                         modifier = Modifier.testTag("nav_settings")
                                     )
                                 }
@@ -359,6 +369,7 @@ fun RowScope.FloatingNavItem(
     filledIcon: ImageVector,
     outlinedIcon: ImageVector,
     label: String,
+    navLabelVisibility: Int,
     modifier: Modifier = Modifier
 ) {
     val scale by animateFloatAsState(
@@ -393,6 +404,12 @@ fun RowScope.FloatingNavItem(
         animationSpec = tween(durationMillis = 200)
     )
 
+    val showLabel = when (navLabelVisibility) {
+        0 -> true
+        1 -> selected
+        else -> false
+    }
+
     Box(
         modifier = modifier
             .weight(1f)
@@ -425,15 +442,17 @@ fun RowScope.FloatingNavItem(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 11.sp,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                ),
-                color = activeTextColor
-            )
+            if (showLabel) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 11.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                    ),
+                    color = activeTextColor
+                )
+            }
         }
     }
 }

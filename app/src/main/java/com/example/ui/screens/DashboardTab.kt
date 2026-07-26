@@ -94,6 +94,7 @@ fun DashboardTab(
     val isIncognito by viewModel.isIncognito.collectAsState()
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
     val isTime24Hour by viewModel.isTime24Hour.collectAsState()
+    val isGreetingEnabled by viewModel.isGreetingEnabled.collectAsState()
     val hourColor by viewModel.hourColor.collectAsState()
     val minuteColor by viewModel.minuteColor.collectAsState()
     val secondColor by viewModel.secondColor.collectAsState()
@@ -305,15 +306,17 @@ fun DashboardTab(
                         )
                     )
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = greeting,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = (-1).sp,
-                        color = MaterialTheme.colorScheme.onBackground
+                if (isGreetingEnabled) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = greeting,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-1).sp,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
                     )
-                )
+                }
             }
 
             Row(

@@ -95,6 +95,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val selectedThemeMode = MutableStateFlow(settingsPrefs.getString("theme_mode", "System") ?: "System")
     val browserTogglePosition = MutableStateFlow(settingsPrefs.getString("browser_toggle_pos", "Bottom Center") ?: "Bottom Center")
     val isForceDarkWeb = MutableStateFlow(settingsPrefs.getBoolean("force_dark_web", false))
+    val navLabelVisibility = MutableStateFlow(settingsPrefs.getInt("nav_labels", 1)) // 0: Always, 1: Selected, 2: Hidden
+    val isCompactLayout = MutableStateFlow(settingsPrefs.getBoolean("compact_layout", false))
+    val isGlassmorphism = MutableStateFlow(settingsPrefs.getBoolean("glassmorphism", false))
+    val isGreetingEnabled = MutableStateFlow(settingsPrefs.getBoolean("greeting_enabled", true))
     val downloadFolderPath = MutableStateFlow(
         settingsPrefs.getString("download_path", null)
             ?: defaultDownloadPath(application)
@@ -257,6 +261,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persistFlow(selectedThemeMode)    { putString("theme_mode", it) }
         persistFlow(browserTogglePosition){ putString("browser_toggle_pos", it) }
         persistFlow(isForceDarkWeb)       { putBoolean("force_dark_web", it) }
+        persistFlow(navLabelVisibility)   { putInt("nav_labels", it) }
+        persistFlow(isCompactLayout)      { putBoolean("compact_layout", it) }
+        persistFlow(isGlassmorphism)      { putBoolean("glassmorphism", it) }
+        persistFlow(isGreetingEnabled)    { putBoolean("greeting_enabled", it) }
         persistFlow(downloadFolderPath)   { putString("download_path", it) }
 
         // Persist network settings
