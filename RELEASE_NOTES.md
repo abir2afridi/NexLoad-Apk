@@ -1,62 +1,32 @@
-# NexLoad v1.3.0 Release Notes
+# NexLoad v1.4.0 Release Notes
 
-**Release Date:** July 26, 2026
+**Release Date:** July 27, 2026
 
 ## Overview
 
-v1.3.0 is a major feature release focused on expanding supported video platforms and improving the overall user experience. Instagram, Facebook, and Pinterest now have dedicated multi-strategy extraction pipelines, while the new yt-dlp integration provides broader platform coverage. The vault gets biometric unlock and a pattern lock, and the UI sees numerous refinements.
+v1.4.0 focuses on theming, localization, and UI polish. The app now supports ~100 languages with persistent language selection, expanded Material You dynamic color integration, and enhanced Look & Feel customization. All screens have been audited for consistent 120dp bottom clearance against the floating navigation bar.
 
 ## What's Changed
 
-### 🚀 New Platforms & Extraction
+### 🚀 Features
 
-- **Instagram Downloader** — 3-strategy pipeline: GraphQL POST API (doc_id + X-IG-App-ID) → page HTML with browser headers → JSON-LD VideoObject; cookie-authenticated via WebView login
-- **Facebook Downloader** — 4-strategy extraction: m.facebook.com → www → mbasic → oEmbed; facebookexternalhit/1.1 UA bypasses 403 errors
-- **Pinterest Downloader** — 5-strategy extraction with brace-counting JSON parser for relay scripts; pin.it short URL resolution
-- **yt-dlp Integration** — Broad platform coverage via youtubedl-android + ffmpeg
-- **Custom HTTP Headers** — Support for authenticated downloads
+- **Language Selection & Localization** — Choose from ~100 languages including Bengali/Bangla. Language preference is persisted and applied system-wide via `Configuration.setLocale`. The activity recreates automatically on selection.
+- **DotLottie Animation Placeholder** — Video preview thumbnails on the dashboard now show a smooth animated loading indicator (via Lottie) while extraction is in progress, replacing the previous static placeholder.
+- **Dynamic Color Support** — Full Material You dynamic color integration for Android 12+, with automatic and manual theme toggling.
+- **Extended Theme Customization** — New options for typography, app bar styling, and surface style in the Look & Feel settings screen.
+- **Advanced Layout Customization** — Additional display and layout preference controls for a more personalized experience.
 
-### 🔒 Vault & Security
+### ♻️ Refactoring & Polish
 
-- Biometric authentication (fingerprint/face) for auto-lock vault
-- Pattern lock view component added
+- **120dp Bottom Clearance** — Comprehensive UI audit across all 21 screens ensures no content is hidden behind the floating navigation bar. 6 key screens received specific padding/spacer updates (Browser Home, Browser Tab, Format Settings, Look & Feel, Network Settings, Subtitle Settings).
+- **WebView Container Restructure** — Browser tab WebView wrapped in Column layout with a trailing spacer for proper bottom clearance.
+- **LanguageData Module** — Language list extracted into a dedicated module (`LanguageData.kt`) for cleaner code organization and easier maintenance.
 
-### 🎨 UI/UX Improvements
+### 📦 Build / CI / Docs
 
-- Browser home screen with improved navigation
-- Network configuration, download format, and subtitle settings
-- Look and feel customization screen
-- Battery optimization management
-- Splash screen on app start
-- Dashboard animations and AMOLED theme support
-- Downloads and Files consolidated into a single tabbed view
-- Time display customization
+- Version bumped to 1.4.0 (versionCode 5)
+- Full CI release build with signed APK and AAB outputs
 
-### 🐞 Bug Fixes
+## Full Changelog
 
-- Facebook CDN 403 forbidden errors resolved
-- TikTok extraction reliability improved with expanded domain support
-- Back navigation now goes to Home tab first
-
-### 📦 Infrastructure
-
-- Complete GitHub community templates (issues, PRs, contributing, code of conduct, security, support)
-- Stale issue/PR management and auto-labeling workflows
-
-## Installation
-
-### Download
-
-| File | Size |
-|------|------|
-| `app-release.apk` | — |
-| `app-release.aab` | — |
-
-### Requirements
-
-- Android 7.0 (API 24) or higher
-- ARM64 / ARM / x86_64
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for complete changelog.
+See [CHANGELOG.md](../CHANGELOG.md) for the complete list of commits.

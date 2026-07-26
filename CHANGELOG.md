@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.4.0] — 2026-07-27
+
+### 🚀 Features
+
+- **Language Selection & Localization** — Support for ~100 languages including Bengali/Bangla. Language preference persisted and applied via `Configuration.setLocale`. Activity recreates on language change.
+- **DotLottie Animation Placeholder** — Animated loading indicator for video preview thumbnails on the dashboard while extraction is in progress.
+- **Dynamic Color Support** — Expanded theming with dynamic color (Material You) integration for Android 12+.
+- **Extended Theme Customization** — New typography, app bar, and surface style options in Look & Feel settings.
+- **Advanced Layout Customization** — Refined visual customization options for display and layout preferences.
+
+### ♻️ Refactoring
+
+- **Look & Feel Settings** — Restructured layout with extracted LanguageData module for maintainable language list management.
+- **120dp Bottom Clearance** — Adjusted padding across Browser Home, Browser Tab, Format Settings, Look & Feel, Network Settings, and Subtitle Settings screens for floating navigation bar compatibility.
+- **WebView Container** — Wrapped BrowserTab WebView in Column layout with spacer for consistent bottom clearance.
+
+### 🎨 Style
+
+- **Consistent Bottom Padding** — Standardized to 120dp across all 21 screens for uniform floating navigation bar clearance.
+
+### 📦 Build / CI / Docs
+
+- **v1.4.0 Release** — Version bumped, new SHA-256 checksums and APK/AAB sizes in associated CI run.
+
+---
+
 ## [1.3.0] — 2026-07-26
 
 ### 🚀 Features
@@ -140,6 +166,7 @@
 - File library with category filtering
 - Material 3 design with customizable themes
 
+[1.4.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.4.0
 [1.3.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.3.0
 [1.2.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.2.0
 [1.1.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.1.0
