@@ -1,5 +1,55 @@
 # Changelog
 
+## [1.3.0] — 2026-07-26
+
+### 🚀 Features
+
+- **Instagram Downloader** — Full 3-strategy extraction pipeline: GraphQL POST API (doc_id + X-IG-App-ID), page HTML with Firefox desktop headers, JSON-LD VideoObject; cookie-authenticated session via InstagramLoginActivity WebView
+- **Facebook Downloader** — 4-strategy extraction: m.facebook.com → www → mbasic → oEmbed; facebookexternalhit/1.1 UA for CDN access; share URL resolution
+- **Pinterest Downloader** — 5-strategy extraction with brace-counting JSON parser for relay scripts; pin.it short URL resolution; browser headers for server-side rendering
+- **yt-dlp Integration** — Direct source URL downloads via youtubedl-android + ffmpeg for broad platform coverage
+- **Custom HTTP Headers** — Support for authenticated requests with custom headers per download
+- **Extensible Media Extraction System** — Plugin-style extractor architecture for easy new platform addition
+- **Network Configuration Settings** — Download format selection, subtitle configuration, battery optimization management
+- **Look and Feel Customization** — New appearance settings screen
+- **Browser Home Screen** — Improved browser start page with better navigation
+- **Vault Pattern Lock** — Canvas-based PIN pattern lock component for private vault
+- **Biometric Authentication** — Auto-lock vault with biometric (fingerprint/face) unlock
+- **Splash Screen** — Branded loading sequence on app start
+- **Public Storage Access & Migration** — Legacy storage path migration support
+- **Time Display & Animations** — Customizable time format and enhanced dashboard animations
+
+### 🐞 Bug Fixes
+
+- **Facebook CDN 403 Forbidden** — Resolved by using facebookexternalhit/1.1 User-Agent and cookie injection for fbcdn.net URLs
+- **TikTok Extraction Reliability** — Expanded domain support and fallback strategy improvements
+- **Back Navigation** — System back gesture now navigates to Home tab instead of exiting
+
+### ♻️ Refactoring
+
+- **Video Info Card** — Redesigned for persistent label visibility (Title/Author/Duration/Output)
+- **Icon Migration** — Migrated to auto-mirrored icons for RTL support
+- **Material 3 Opt-In** — Added experimental Material 3 to concurrent fragments dialog
+- **yt-dlp Reliability** — Improved error handling and timeout management
+- **Media Detection Bottom Sheet** — Redesigned layout for better usability
+- **Browser Navigation** — Standardized padding, moved settings to Settings tab
+- **Downloads & Files Consolidation** — Unified into a single tabbed view
+- **Dashboard Layout** — Restructured for AMOLED theme support
+
+### 🎨 Style
+
+- **Slider Implementation** — Updated in network settings
+- **Padding Consistency** — Adjusted bottom padding and spacing across screens
+
+### 📦 Build / CI / Docs
+
+- **GitHub Community Infrastructure** — Issue templates (6 forms), PR template, CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md, SUPPORT.md, stale/label workflows
+- **yt-dlp & ffmpeg Dependencies** — Integrated for enhanced extraction capabilities
+- **CI Workflow Fix** — Dynamic version extraction from tag, debug keystore fallback
+- **README Documentation** — Detailed extraction processes for Instagram, Facebook, TikTok, Pinterest, Steam
+
+---
+
 ## [1.2.0] — 2026-07-16
 
 ### 🚀 Features
@@ -90,6 +140,7 @@
 - File library with category filtering
 - Material 3 design with customizable themes
 
+[1.3.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.3.0
 [1.2.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.2.0
 [1.1.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.1.0
 [1.0.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.0.0

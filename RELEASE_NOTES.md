@@ -1,28 +1,61 @@
-# NexLoad v1.2.0 Release Notes
+# NexLoad v1.3.0 Release Notes
 
-**Release Date:** July 16, 2026
+**Release Date:** July 26, 2026
 
 ## Overview
 
-v1.2.0 is a small but impactful quality-of-life release that fixes the most common navigation complaint: back gesture now goes to Home first instead of exiting the app.
+v1.3.0 is a major feature release focused on expanding supported video platforms and improving the overall user experience. Instagram, Facebook, and Pinterest now have dedicated multi-strategy extraction pipelines, while the new yt-dlp integration provides broader platform coverage. The vault gets biometric unlock and a pattern lock, and the UI sees numerous refinements.
 
 ## What's Changed
 
-- **Back Navigation to Home Tab** — System back gesture from any tab (Settings, Browser, Files, Downloads, Vault) now navigates to the Home/Dashboard tab. The app only exits when back is pressed from the Home tab. This matches standard Android navigation behavior.
-- **Simplified CI/CD Workflow** — The GitHub Actions release pipeline was streamlined for faster execution.
+### 🚀 New Platforms & Extraction
+
+- **Instagram Downloader** — 3-strategy pipeline: GraphQL POST API (doc_id + X-IG-App-ID) → page HTML with browser headers → JSON-LD VideoObject; cookie-authenticated via WebView login
+- **Facebook Downloader** — 4-strategy extraction: m.facebook.com → www → mbasic → oEmbed; facebookexternalhit/1.1 UA bypasses 403 errors
+- **Pinterest Downloader** — 5-strategy extraction with brace-counting JSON parser for relay scripts; pin.it short URL resolution
+- **yt-dlp Integration** — Broad platform coverage via youtubedl-android + ffmpeg
+- **Custom HTTP Headers** — Support for authenticated downloads
+
+### 🔒 Vault & Security
+
+- Biometric authentication (fingerprint/face) for auto-lock vault
+- Pattern lock view component added
+
+### 🎨 UI/UX Improvements
+
+- Browser home screen with improved navigation
+- Network configuration, download format, and subtitle settings
+- Look and feel customization screen
+- Battery optimization management
+- Splash screen on app start
+- Dashboard animations and AMOLED theme support
+- Downloads and Files consolidated into a single tabbed view
+- Time display customization
+
+### 🐞 Bug Fixes
+
+- Facebook CDN 403 forbidden errors resolved
+- TikTok extraction reliability improved with expanded domain support
+- Back navigation now goes to Home tab first
+
+### 📦 Infrastructure
+
+- Complete GitHub community templates (issues, PRs, contributing, code of conduct, security, support)
+- Stale issue/PR management and auto-labeling workflows
 
 ## Installation
 
 ### Download
 
-| File | Size | SHA-256 |
-|------|------|---------|
-| `app-release.apk` | 15.13 MB | `A00730452B65196237FACE62C787F6249167EDD5FD7E055094E05FFE262532F6` |
-| `app-release.aab` | 14.69 MB | `8478C45205F06C5A12E26076100B2F21E2B01F9EE4FA2926CB54B528CB633ECA` |
+| File | Size |
+|------|------|
+| `app-release.apk` | — |
+| `app-release.aab` | — |
 
 ### Requirements
 
 - Android 7.0 (API 24) or higher
+- ARM64 / ARM / x86_64
 
 ## Changelog
 
