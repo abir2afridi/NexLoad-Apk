@@ -2,6 +2,7 @@ package com.example.data.download
 
 import android.util.Log
 import com.squareup.moshi.Types
+import okhttp3.FormBody
 import okhttp3.Request
 import java.util.regex.Pattern
 
@@ -10,19 +11,52 @@ internal fun extractInstagram(url: String): TikTokVideoData? {
     val shortcode = extractInstagramShortcode(resolved) ?: return null
     Log.d(EXTRACTOR_TAG, "Extracting Instagram shortcode: $shortcode")
 
-    val graphqlResult = extractFromInstagramGraphql(shortcode)
+    val graphqlResult = extractFromInstagramGraphqlV2(shortcode)
     if (graphqlResult != null) return graphqlResult
 
-    val html = fetchPageHtml(resolved)
+    val html = fetchInstagramPageHtml(resolved)
     if (html != null) {
         val metaResult = extractInstagramFromMetaTags(html)
         if (metaResult != null) return metaResult
         val jsonLdResult = extractFromInstagramJsonLd(html)
         if (jsonLdResult != null) return jsonLdResult
-        val scriptResult = extractFromInstagramScriptData(html)
-        if (scriptResult != null) return scriptResult
     }
     return null
+}
+
+internal fun fetchInstagramPageHtml(url: String): String? {
+    return try {
+        val request = Request.Builder().url(url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0")
+            .header("Accept", "*/*")
+            .header("Accept-Language", "en-US,en;q=0.5")
+            .header("Accept-Encoding", "gzip, deflate, br")
+            .header("Referer", "https://www.instagram.com/")
+            .header("DNT", "1")
+            .header("Sec-Fetch-Dest", "document")
+            .header("Sec-Fetch-Mode", "navigate")
+            .header("Sec-Fetch-Site", "same-origin")
+            .header("Connection", "keep-alive")
+            .header("Upgrade-Insecure-Requests", "1")
+            .header("TE", "Trailers")
+            .get().build()
+        val response = extractorClient.newCall(request).execute()
+        response.use { resp ->
+            if (!resp.isSuccessful) {
+                Log.w(EXTRACTOR_TAG, "HTTP ${resp.code} fetching Instagram page")
+                return null
+            }
+            val html = resp.body?.string()
+            if (html.isNullOrBlank()) {
+                Log.w(EXTRACTOR_TAG, "Empty Instagram page response body")
+                return null
+            }
+            html
+        }
+    } catch (e: Throwable) {
+        Log.w(EXTRACTOR_TAG, "Failed to fetch Instagram page HTML", e)
+        null
+    }
 }
 
 internal fun extractInstagramShortcode(url: String): String? {
@@ -43,27 +77,77 @@ internal fun extractInstagramShortcode(url: String): String? {
     return null
 }
 
-private fun extractFromInstagramGraphql(shortcode: String): TikTokVideoData? {
+private fun extractFromInstagramGraphqlV2(shortcode: String): TikTokVideoData? {
     try {
-        val graphqlUrl = "https://www.instagram.com/graphql/query/?query_hash=4777bf1659f3c198a0be3bb630125cce&variables={\"shortcode\":\"$shortcode\"}"
-        val request = Request.Builder().url(graphqlUrl)
-            .header("User-Agent", MOBILE_UA)
-            .header("Accept", "application/json")
-            .header("X-Requested-With", "XMLHttpRequest")
-            .get().build()
+        val csrfToken = InstagramCookieStore.getCookies()
+            .split(";")
+            .firstOrNull { it.trim().startsWith("csrftoken") }
+            ?.split("=")?.get(1)?.trim() ?: "RVDUooU5MYsBbS1CNN3CzVAuEP8oHB52"
+
+        val variables = """{"shortcode":"$shortcode","fetch_comment_count":null,"fetch_related_profile_media_count":null,"parent_comment_count":null,"child_comment_count":null,"fetch_like_count":null,"fetch_tagged_user_count":null,"fetch_preview_comment_count":null,"has_threaded_comments":false,"hoisted_comment_id":null,"hoisted_reply_id":null}"""
+
+        val formBody = FormBody.Builder()
+            .add("av", "0")
+            .add("__d", "www")
+            .add("__user", "0")
+            .add("__a", "1")
+            .add("__req", "3")
+            .add("__hs", "19624.HYP:instagram_web_pkg.2.1..0.0")
+            .add("dpr", "3")
+            .add("__ccg", "UNKNOWN")
+            .add("__rev", "1008824440")
+            .add("__s", "xf44ne:zhh75g:xr51e7")
+            .add("__hsi", "7282217488877343271")
+            .add("__dyn", "7xeUmwlEnwn8K2WnFw9-2i5U4e0yoW3q32360CEbo1nEhw2nVE4W0om78b87C0yE5ufz81s8hwGwQwoEcE7O2l0Fwqo31w9a9x-0z8-U2zxe2GewGwso88cobEaU2eUlwhEe87q7-0iK2S3qazo7u1xwIw8O321LwTwKG1pg661pwr86C1mwraCg")
+            .add("__csr", "gZ3yFmJkillQvV6ybimnG8AmhqujGbLADgjyEOWz49z9XDlAXBJpC7Wy-vQTSvUGWGh5u8KibG44dBiigrgjDxGjU0150Q0848azk48N09C02IR0go4SaR70r8owyg9pU0V23hwiA0LQczA48S0f-x-27o05NG0fkw")
+            .add("__comet_req", "7")
+            .add("lsd", "AVqbxe3J_YA")
+            .add("jazoest", "2957")
+            .add("__spin_r", "1008824440")
+            .add("__spin_b", "trunk")
+            .add("__spin_t", "1695523385")
+            .add("fb_api_caller_class", "RelayModern")
+            .add("fb_api_req_friendly_name", "PolarisPostActionLoadPostQueryQuery")
+            .add("variables", variables)
+            .add("server_timestamps", "true")
+            .add("doc_id", "10015901848480474")
+            .build()
+
+        val request = Request.Builder()
+            .url("https://www.instagram.com/graphql/query")
+            .header("User-Agent", "Mozilla/5.0 (Linux; Android 11; SAMSUNG SM-G973U) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/14.2 Chrome/87.0.4280.141 Mobile Safari/537.36")
+            .header("Accept", "*/*")
+            .header("Accept-Language", "en-US,en;q=0.5")
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .header("X-FB-Friendly-Name", "PolarisPostActionLoadPostQueryQuery")
+            .header("X-CSRFToken", csrfToken)
+            .header("X-IG-App-ID", "1217981644879628")
+            .header("X-FB-LSD", "AVqbxe3J_YA")
+            .header("X-ASBD-ID", "129477")
+            .header("Sec-Fetch-Dest", "empty")
+            .header("Sec-Fetch-Mode", "cors")
+            .header("Sec-Fetch-Site", "same-origin")
+            .header("Origin", "https://www.instagram.com")
+            .header("Referer", "https://www.instagram.com/")
+            .header("Connection", "keep-alive")
+            .post(formBody)
+            .build()
 
         extractorClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return null
+            if (!response.isSuccessful) {
+                Log.w(EXTRACTOR_TAG, "Instagram GraphQL v2 returned ${response.code}")
+                return null
+            }
             val body = response.body?.string() ?: return null
-
             val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
             val root = adapter.fromJson(body) ?: return null
             val data = root["data"] as? Map<*, *> ?: return null
-            val shortcodeMedia = data["shortcode_media"] as? Map<*, *> ?: return null
+            val shortcodeMedia = data["xdt_shortcode_media"] as? Map<*, *>
+                ?: data["shortcode_media"] as? Map<*, *> ?: return null
             return parseInstagramMedia(shortcodeMedia)
         }
     } catch (e: Throwable) {
-        Log.w(EXTRACTOR_TAG, "Instagram GraphQL failed", e)
+        Log.w(EXTRACTOR_TAG, "Instagram GraphQL v2 failed", e)
         return null
     }
 }
@@ -189,67 +273,6 @@ private fun extractFromInstagramJsonLd(html: String): TikTokVideoData? {
         }
     } catch (e: Exception) {
         Log.w(EXTRACTOR_TAG, "extractFromInstagramJsonLd failed", e)
-    }
-    return null
-}
-
-private fun extractFromInstagramScriptData(html: String): TikTokVideoData? {
-    try {
-        val sharePattern = Pattern.compile(
-            """window\.__shareConfig\s*=\s*({[\s\S]*?});""",
-            Pattern.CASE_INSENSITIVE
-        )
-        val shareMatcher = sharePattern.matcher(html)
-        if (shareMatcher.find()) {
-            val jsonStr = shareMatcher.group(1)
-            if (jsonStr != null) {
-                val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
-                val config = adapter.fromJson(jsonStr) ?: return null
-                val videoUrl = config["video_url"]?.toString() ?: config["src"]?.toString()
-                if (!videoUrl.isNullOrBlank()) {
-                    return TikTokVideoData(
-                        id = "", title = "", author = "", authorId = "",
-                        thumbnail = "", duration = 0L,
-                        videoUrl = videoUrl, videoUrlNoWatermark = videoUrl, audioUrl = null
-                    )
-                }
-            }
-        }
-
-        val additionalDataPattern = Pattern.compile(
-            """<script[^>]*type=["']text\/javascript["'][^>]*>([\s\S]*?window\.__additionalData[\s\S]*?)</script>""",
-            Pattern.CASE_INSENSITIVE
-        )
-        val additionalMatcher = additionalDataPattern.matcher(html)
-        if (additionalMatcher.find()) {
-            val scriptContent = additionalMatcher.group(1)
-            val jsonMatch = Regex("""window\.__additionalData\s*\(\s*(\{[\s\S]*?\})\s*\)""").find(scriptContent ?: "")
-            if (jsonMatch != null) {
-                val jsonStr = jsonMatch.groupValues[1]
-                val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
-                val data = adapter.fromJson(jsonStr) ?: return null
-                val shortcodeMedia = (data["graphql"] as? Map<*, *>)?.get("shortcode_media") as? Map<*, *>
-                if (shortcodeMedia != null) return parseInstagramMedia(shortcodeMedia)
-            }
-        }
-
-        val videoUrlPattern = Pattern.compile(
-            """https?://[^"'\s<>]*?instagram[^"'\s<>]*?\.mp4[^"'\s<>]*""",
-            Pattern.CASE_INSENSITIVE
-        )
-        val videoMatcher = videoUrlPattern.matcher(html)
-        if (videoMatcher.find()) {
-            val videoUrl = videoMatcher.group()
-            if (!videoUrl.isNullOrBlank()) {
-                return TikTokVideoData(
-                    id = "", title = "", author = "", authorId = "",
-                    thumbnail = "", duration = 0L,
-                    videoUrl = videoUrl, videoUrlNoWatermark = videoUrl, audioUrl = null
-                )
-            }
-        }
-    } catch (e: Exception) {
-        Log.w(EXTRACTOR_TAG, "extractFromInstagramScriptData failed", e)
     }
     return null
 }

@@ -198,7 +198,23 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
         val requestBuilder = Request.Builder().url(url)
         val isFacebook = url.contains("facebook.com") || url.contains("fb.watch") || url.contains("fb.com")
         val isPinterest = url.contains("pinterest.com") || url.contains("pin.it")
-        if (isFacebook) {
+        val isInstagram = url.contains("instagram.com") || url.contains("instagr.am")
+        if (isInstagram) {
+            requestBuilder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0")
+            requestBuilder.header("Accept", "*/*")
+            requestBuilder.header("Accept-Language", "en-US,en;q=0.5")
+            requestBuilder.header("Referer", "https://www.instagram.com/")
+            requestBuilder.header("DNT", "1")
+            requestBuilder.header("Sec-Fetch-Dest", "document")
+            requestBuilder.header("Sec-Fetch-Mode", "navigate")
+            requestBuilder.header("Sec-Fetch-Site", "same-origin")
+            requestBuilder.header("Connection", "keep-alive")
+            requestBuilder.header("Upgrade-Insecure-Requests", "1")
+            val igCookies = InstagramCookieStore.getCookies()
+            if (igCookies.isNotBlank()) {
+                requestBuilder.header("Cookie", igCookies)
+            }
+        } else if (isFacebook) {
             requestBuilder.header("User-Agent", "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
             requestBuilder.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
             requestBuilder.header("Accept-Language", "en-US,en;q=0.9")
@@ -255,6 +271,19 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
                     val cookieStr = cookies.joinToString("; ") { it.substringBefore(";") }
                     FacebookCookieStore.setCookies(cookieStr)
                     Log.d(EXTRACTOR_TAG, "Saved ${cookies.size} Facebook cookies")
+                }
+            }
+            if (isInstagram) {
+                val cookies = resp.headers("Set-Cookie")
+                if (cookies.isNotEmpty()) {
+                    val existing = InstagramCookieStore.getCookies()
+                    val newCookies = cookies.joinToString("; ") { it.substringBefore(";") }
+                    if (existing.isNotBlank()) {
+                        InstagramCookieStore.setCookies("$existing; $newCookies")
+                    } else {
+                        InstagramCookieStore.setCookies(newCookies)
+                    }
+                    Log.d(EXTRACTOR_TAG, "Saved ${cookies.size} Instagram cookies")
                 }
             }
             val html = resp.body?.string()
