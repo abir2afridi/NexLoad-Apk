@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -44,6 +45,7 @@ fun LookAndFeelScreen(
     val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
 
     var showCustomColorPicker by remember { mutableStateOf(false) }
+    var showThemeModeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -69,12 +71,15 @@ fun LookAndFeelScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 // Preview Section
                 PreviewCard()
 
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // Theme Schemes Section
+                SectionHeader("Accent Color")
                 ThemeSchemePicker(
                     selectedScheme = selectedAccentColor,
                     onSchemeSelected = { viewModel.selectedAccentColor.value = it },
@@ -83,10 +88,20 @@ fun LookAndFeelScreen(
 
                 // Settings Section: Theme & Display
                 SectionHeader("Theme & Display")
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                SettingsCard {
+                    SettingDetailRow(
+                        icon = Icons.Outlined.Brightness4,
+                        title = "Theme mode",
+                        subtitle = when (selectedThemeMode) {
+                            "Dark" -> "Dark theme enabled"
+                            "Light" -> "Light theme enabled"
+                            else -> "Follow system default"
+                        },
+                        onClick = { showThemeModeDialog = true }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
                     SettingSwitchRow(
                         icon = Icons.Outlined.Palette,
                         title = "Dynamic color",
@@ -95,15 +110,7 @@ fun LookAndFeelScreen(
                         onCheckedChange = { viewModel.isDynamicColor.value = it }
                     )
 
-                    SettingSwitchRow(
-                        icon = Icons.Outlined.DarkMode,
-                        title = "Dark theme",
-                        subtitle = if (selectedThemeMode == "Dark") "Enabled" else "Disabled",
-                        checked = selectedThemeMode == "Dark",
-                        onCheckedChange = { 
-                            viewModel.selectedThemeMode.value = if (it) "Dark" else "Light" 
-                        }
-                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
                     SettingSwitchRow(
                         icon = Icons.Outlined.Contrast,
@@ -113,21 +120,26 @@ fun LookAndFeelScreen(
                         onCheckedChange = { viewModel.isMonochrome.value = it }
                     )
 
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                    val isDark = when (selectedThemeMode) {
+                        "Dark" -> true
+                        "Light" -> false
+                        else -> isSystemInDarkTheme()
+                    }
                     SettingSwitchRow(
                         icon = Icons.Outlined.BrightnessMedium,
                         title = "AMOLED Black",
                         subtitle = "Perfect blacks for OLED screens",
                         checked = isAmoledMode,
+                        enabled = isDark,
                         onCheckedChange = { viewModel.isAmoledMode.value = it }
                     )
                 }
 
                 // Settings Section: UI Refinement
                 SectionHeader("UI Refinement")
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+                SettingsCard {
                     SliderSetting(
                         icon = Icons.Outlined.TextFields,
                         title = "Font Scale",
@@ -137,6 +149,8 @@ fun LookAndFeelScreen(
                         steps = 5,
                         displayValue = "${(fontScale * 100).toInt()}%"
                     )
+
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
                     SliderSetting(
                         icon = Icons.Outlined.RoundedCorner,
@@ -151,21 +165,13 @@ fun LookAndFeelScreen(
 
                 // Miscellaneous
                 SectionHeader("Miscellaneous")
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .clickable { /* Language change */ }
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Icon(Icons.Outlined.Language, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Display language", style = MaterialTheme.typography.bodyLarge)
-                        Text("English (United States)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                SettingsCard {
+                    SettingDetailRow(
+                        icon = Icons.Outlined.Language,
+                        title = "Display language",
+                        subtitle = "English (United States)",
+                        onClick = { /* Language change */ }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -182,6 +188,80 @@ fun LookAndFeelScreen(
             }
         )
     }
+
+    if (showThemeModeDialog) {
+        ThemeModeDialog(
+            currentMode = selectedThemeMode,
+            onDismiss = { showThemeModeDialog = false },
+            onConfirm = { viewModel.selectedThemeMode.value = it }
+        )
+    }
+}
+
+@Composable
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) { Column(modifier = Modifier.padding(vertical = 4.dp), content = content) }
+}
+
+@Composable
+private fun ThemeModeDialog(
+    currentMode: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val modes = listOf("System", "Light", "Dark")
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Theme mode") },
+        text = {
+            Column {
+                modes.forEach { mode ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onConfirm(mode); onDismiss() }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(mode)
+                        if (mode == currentMode) {
+                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun SettingDetailRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.AutoMirrored.Outlined.ArrowForwardIos, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(16.dp))
+    }
 }
 
 @Composable
@@ -196,7 +276,7 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-fun SliderSetting(
+private fun SliderSetting(
     icon: ImageVector,
     title: String,
     value: Float,
@@ -205,12 +285,12 @@ fun SliderSetting(
     steps: Int,
     displayValue: String
 ) {
-    Column {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             Text(displayValue, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
@@ -219,7 +299,7 @@ fun SliderSetting(
             onValueChange = onValueChange,
             valueRange = valueRange,
             steps = steps,
-            modifier = Modifier.padding(horizontal = 8.dp)
+            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }
@@ -254,7 +334,9 @@ fun PreviewCard() {
                 Icon(
                     imageVector = Icons.Default.PlayCircleFilled,
                     contentDescription = null,
-                    modifier = Modifier.size(64.dp).align(Alignment.Center),
+                    modifier = Modifier
+                        .size(64.dp)
+                        .align(Alignment.Center),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                 )
 
@@ -272,18 +354,54 @@ fun PreviewCard() {
                 }
             }
 
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Video title sample text", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Video creator sample text", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column {
+                    Text(
+                        "NexLoad Material 3 Preview",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Sample text to demonstrate typography",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = true,
+                        onClick = {},
+                        label = { Text("Selected") },
+                        leadingIcon = { Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                    )
+                    FilterChip(
+                        selected = false,
+                        onClick = {},
+                        label = { Text("Option") }
+                    )
+                    SuggestionChip(
+                        onClick = {},
+                        label = { Text("Suggestion") }
+                    )
+                }
+
                 LinearProgressIndicator(
                     progress = { 0.6f },
-                    modifier = Modifier.fillMaxWidth().clip(CircleShape),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(CircleShape),
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                 )
+
+                Button(
+                    onClick = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text("Sample Button")
+                }
             }
         }
     }
@@ -441,30 +559,44 @@ fun CustomColorDialog(
 }
 
 @Composable
-fun SettingSwitchRow(
+private fun SettingSwitchRow(
     icon: ImageVector,
     title: String,
     subtitle: String,
     checked: Boolean,
+    enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 12.dp),
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+            modifier = Modifier.size(24.dp)
         )
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+            )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled
+        )
     }
 }
