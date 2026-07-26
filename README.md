@@ -1,10 +1,12 @@
 # NexLoad — Smart Video Downloader
 
+<!-- markdownlint-disable MD033 MD013 -->
 <p align="center">
   <img src="app/NexLoad.png" alt="NexLoad Logo" width="192">
 </p>
+<!-- markdownlint-enable MD033 -->
 
-[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.3.0)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.4.0)
 [![Release](https://img.shields.io/github/release/abir2afridi/NexLoad-Apk.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-brightgreen.svg)](https://developer.android.com/about/versions/nougat)
@@ -45,7 +47,7 @@ An Android application for downloading videos and media from the web with a buil
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+| ----- | ---------- |
 | Language | Kotlin |
 | UI | Jetpack Compose + Material 3 |
 | Architecture | MVVM with Repository Pattern |
@@ -60,14 +62,15 @@ An Android application for downloading videos and media from the web with a buil
 
 ## Installation
 
-### Latest Release — v1.3.0
+### Latest Release — v1.4.0
 
 | File | Size | SHA-256 |
-|------|------|---------|
-| [app-release.apk](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.apk) | 120.32 MB | `1533ed784e7281a7aecb69425ddb796df01f5a4bef61b22b6283e494a622ffb4` |
-| [app-release.aab](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.aab) | 119.73 MB | `c81be73eb52f8c02f543fa9dbe79a72dbed8f0f4771487acf295114084c7367a` |
+| ---- | ---- | ------- |
+| [app-release.apk](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.apk) | 120.38 MB | `83492113114972705bf7e009d3a380e083bfa268d3b5433cc6d8b374c112b11b` |
+| [app-release.aab](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.aab) | 119.78 MB | `a78f402c5a7d67a61b2ca3e32d921417746b7228fddb7c4b13311115604e17d9` |
 
 ### Requirements
+
 - Android 7.0 (API 24) or higher
 - ARM64 / ARM / x86_64
 
@@ -79,6 +82,7 @@ An Android application for downloading videos and media from the web with a buil
 ### Signing
 
 Release builds require the following environment variables:
+
 - `KEYSTORE_PATH`
 - `KEYSTORE_PASSWORD`
 - `KEY_ALIAS`
@@ -88,7 +92,7 @@ Debug builds use a local `debug.keystore` with default credentials.
 
 ## Project Structure
 
-```
+```text
 app/src/main/java/com/example/
 ├── MainActivity.kt                    # Entry point with bottom navigation
 ├── ui/
@@ -142,31 +146,37 @@ app/src/main/java/com/example/
 Instagram video extraction uses a 3-strategy pipeline in `InstagramExtractor.kt`:
 
 ### Strategy 1: GraphQL POST API (Primary)
-```
+
+```http
 POST https://www.instagram.com/graphql/query
 Content-Type: application/x-www-form-urlencoded
 X-IG-App-ID: 1217981644879628
 X-CSRFToken: <from cookie>
 X-FB-LSD: AVqbxe3J_YA
 ```
+
 - Sends `doc_id=10015901848480474` + `variables` (shortcode JSON) in form body
 - Response contains `data.xdt_shortcode_media.video_url` — the direct CDN video URL
 - This is the SAME approach used by working open-source repos (Okramjimmy/Instagram-reels-downloader)
 
 ### Strategy 2: Page HTML with Browser Headers (Fallback)
+
 - Fetches page HTML with Firefox desktop User-Agent + Instagram-specific Sec-Fetch headers
 - Instagram returns server-rendered HTML with `<meta property="og:video">` containing the direct CDN URL
 - Without these specific headers, Instagram returns empty JS-rendered shell
 
 ### Strategy 3: JSON-LD VideoObject (Tertiary)
+
 - Parses `<script type="application/ld+json">` for VideoObject with `contentUrl`
 
 ### Why the Old Approach Failed
+
 - **Old GraphQL**: Used GET with `query_hash=4777bf1659f3c198a0be3bb630125cce` — Instagram deprecated this
 - **__additionalData / __shareConfig**: These JavaScript variables no longer exist in Instagram's HTML
 - **Generic headers**: Returned empty HTML without video data
 
 ### Cookie Authentication
+
 - Users can log in via WebView (`InstagramLoginActivity`) to capture session cookies
 - Cookies are stored in `InstagramCookieStore` (SharedPreferences)
 - GraphQL requests extract `X-CSRFToken` from cookies automatically
@@ -177,34 +187,41 @@ X-FB-LSD: AVqbxe3J_YA
 Facebook video extraction uses a 4-strategy pipeline in `FacebookExtractor.kt`:
 
 ### Strategy 1: m.facebook.com (Primary)
+
 - Rewrites URL to `m.facebook.com` — mobile page has simplest HTML
 - Parses `<video>` tags with `hd_src`/`sd_src` attributes for direct CDN URLs
 - Also extracts from script data containing `playable_url` patterns
 - **Most reliable** — avoids Facebook's aggressive rate-limiting on desktop pages
 
-### Strategy 2: www.facebook.com (Desktop Fallback)
+### Strategy 2: Desktop Fallback (`www.facebook.com`)
+
 - Desktop page HTML with JSON-LD VideoObject extraction
 - Script data patterns for `hd_src`/`sd_src` in embedded JSON
 - DASH manifest `BaseURL` extraction for modern Facebook video pages
 
 ### Strategy 3: mbasic.facebook.com (Legacy Fallback)
+
 - Oldest/simplest HTML format with direct `<video>` tag `src` attributes
 - Used when both mobile and desktop pages fail
 
 ### Strategy 4: oEmbed API (Last Resort)
+
 - Facebook's oEmbed endpoint (`https://www.facebook.com/plugins/video/oembed.json`)
 - Returns thumbnail URL and occasionally a direct video URL
 - Used as final fallback before giving up
 
 ### URL Resolution
+
 - Facebook share URLs (`/share/r/xxx`) are resolved to actual video page URLs via HEAD/GET request with Android Chrome User-Agent
 
 ### Why yt-dlp Is Not Used
+
 - yt-dlp (youtubedl-android) hangs indefinitely on Facebook URLs
 - When it does return, it frequently returns HTTP 403 Forbidden on CDN URLs
 - Custom extraction is faster and more reliable
 
 ### Important Caveats
+
 - **User-Agent**: Uses `facebookexternalhit/1.1` in `BaseExtractor.fetchPageHtml()` for Facebook CDN — this is required to avoid 403 on `fbcdn.net` URLs
 - **Cookie Injection**: Facebook login cookies can be captured via WebView (`FacebookLoginActivity`) for access to private/restricted videos
 - **DASH vs MP4**: Modern Facebook serves separate audio+video DASH streams — the CDN URL may be a manifest, not a direct MP4
@@ -215,26 +232,32 @@ Facebook video extraction uses a 4-strategy pipeline in `FacebookExtractor.kt`:
 TikTok video extraction uses a 10-strategy pipeline in `TikTokExtractor.kt`:
 
 ### Strategy 1: TikWM API (Primary)
-```
+
+```http
 POST https://www.tikwm.com/api/
 Content-Type: application/x-www-form-urlencoded
 ```
+
 - Sends `url=<tiktok-url>&hd=1` as form body
 - TikWM returns processed video data with direct CDN URLs
 - Falls back to GET `https://www.tikwm.com/api/?url=<encoded-url>&hd=1` if POST fails
 - Returns HD no-watermark video, watermarked video, and audio-only options
 
 ### Strategy 2: SSSTik API (Secondary)
+
 - Alternative third-party API (ssstik.io) for direct video extraction
 - Used when TikWM API is unreachable or rate-limited
 
 ### Strategy 3: Mobile API (TikTok Mobile Endpoint)
+
 - Extracts video `itemId` from the URL (or HTML)
 - Sends request to TikTok's internal mobile API endpoint
 - Returns JSON with video URLs, author info, and metadata
 
 ### Strategy 4-9: HTML Parsing (Page-Based Fallbacks)
+
 When API strategies fail, the page HTML is fetched and parsed with 6 methods:
+
 1. **Universal Data** — Parses `<script id="__UNIVERSAL_DATA_FOR_VIEW_INITIAL_DATA__">`
 2. **Init Props** — Parses `<script id="__INITIAL_PROPS_INITIAL_STATE__">`
 3. **Sigi Data** — Parses `<script id="SIGI_STATE">` (client-side state)
@@ -244,6 +267,7 @@ When API strategies fail, the page HTML is fetched and parsed with 6 methods:
 7. **Video Tags** — Any `<video>` tag `src` attributes in the page
 
 ### Strategy 10: oEmbed API (Last Resort)
+
 - TikTok's oEmbed endpoint: `https://www.tiktok.com/oembed?url=<itemId>`
 - Returns metadata and thumbnail URL
 
@@ -252,15 +276,18 @@ When API strategies fail, the page HTML is fetched and parsed with 6 methods:
 Pinterest video extraction uses a 5-strategy pipeline in `PinterestExtractor.kt`:
 
 ### Strategy 1: og:video Meta Tag (Simplest)
+
 - Checks `<meta property="og:video">` for direct video URL
 - Rare in modern Pinterest (2025+) but checked first for simplicity
 
 ### Strategy 2: JSON-LD VideoObject (Reliable)
+
 - Parses `<script type="application/ld+json">` for VideoObject with `contentUrl`
 - Most reliable strategy — Pinterest includes this on video pins
 - Content URL format: `https://v1.pinimg.com/videos/.../720p.mp4`
 
 ### Strategy 3: Relay Script Data (Most Complete)
+
 - Parses `__PWS_RELAY_REGISTER_COMPLETED_REQUEST__` scripts
 - Uses **brace-counting JSON parser** (`extractBalancedJson()`) — tracks `{` depth and string escaping to extract the complete nested JSON object
 - Old regex `[\s\S]*?\}` broke on deeply nested JSON (stopped at first `}`)
@@ -269,17 +296,21 @@ Pinterest video extraction uses a 5-strategy pipeline in `PinterestExtractor.kt`
   - `videoListMobile.vHLSV3MOBILE.url` — m3u8 (fallback)
 
 ### Strategy 4: contentUrl Regex (JSON Parser Bypass)
+
 - Direct regex: `"contentUrl"\s*:\s*"(https:\\/\\/v1\.pinimg\.com[^"]+\.mp4)"`
 - Bypasses JSON parser when JSON-LD has duplicate keys that cause parse failures
 
 ### Strategy 5: Pinimg CDN URL Regex (Catch-All)
+
 - Searches entire HTML for any `v1.pinimg.com` URL ending in `.mp4`
 - Pinterest CDN has no authentication issues — always accessible
 
-### URL Resolution
+### Pinterest URL Resolution
+
 - `pin.it` short URLs (e.g., `https://pin.it/2ima6B8Wm`) are resolved to full `https://www.pinterest.com/pin/{id}/` URLs via redirect following
 
 ### Why Other Approaches Failed
+
 - **Missing relay data**: Without browser `Sec-Fetch-*` and `Sec-Ch-Ua` headers, Pinterest returns empty JavaScript shell — no relay scripts
 - **Broken regex**: `[\s\S]*?\}` is non-greedy and stops at first `}`, yielding partial JSON that fails to parse — fixed with brace-counting
 - **Unresolved short URLs**: `resolveRedirect()` only handled TikTok short URLs — added `isShortPinterest` check
@@ -287,7 +318,7 @@ Pinterest video extraction uses a 5-strategy pipeline in `PinterestExtractor.kt`
 ## Supported Platforms
 
 | Platform | Extraction Method |
-|----------|------------------|
+| -------- | ----------------- |
 | TikTok | TikWM API + 9 fallback strategies |
 | Instagram | GraphQL POST (doc_id + X-IG-App-ID) → page og:video → JSON-LD VideoObject |
 | Facebook | m.facebook.com (primary) → www → mbasic, facebookexternalhit/1.1 UA, cookie injection |
@@ -304,7 +335,7 @@ Pinterest video extraction uses a 5-strategy pipeline in `PinterestExtractor.kt`
 
 ## Developer
 
-**Abir Hasan Siam**
+### Abir Hasan Siam
 
 - GitHub: [github.com/abir2afridi](https://github.com/abir2afridi)
 - Portfolio: [abir2afridi.vercel.app](https://abir2afridi.vercel.app/)
