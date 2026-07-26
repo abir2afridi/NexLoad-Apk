@@ -886,22 +886,18 @@ fun DashboardTab(
                                                 contentScale = ContentScale.Crop,
                                             )
                                         } else {
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Icon(
-                                                    Icons.Outlined.Movie,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(32.dp),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                                                )
-                                                Text(
-                                                    text = "Video Preview",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                                                )
-                                            }
+                                            val previewComposition by rememberLottieComposition(
+                                                LottieCompositionSpec.Url("https://lottie.host/e7c3629f-2bb1-4259-bf48-69d90b554aac/0ZOTo1G5Dc.lottie")
+                                            )
+                                            LottieAnimation(
+                                                composition = previewComposition,
+                                                iterations = LottieConstants.IterateForever,
+                                                speed = 1f,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .heightIn(min = 80.dp, max = 160.dp)
+                                                    .background(Color.LightGray)
+                                            )
                                         }
                                     }
 
