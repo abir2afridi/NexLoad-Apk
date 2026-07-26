@@ -4,7 +4,7 @@
   <img src="app/NexLoad.png" alt="NexLoad Logo" width="192">
 </p>
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.2.0)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.3.0)
 [![Release](https://img.shields.io/github/release/abir2afridi/NexLoad-Apk.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-brightgreen.svg)](https://developer.android.com/about/versions/nougat)
@@ -60,12 +60,12 @@ An Android application for downloading videos and media from the web with a buil
 
 ## Installation
 
-### Latest Release — v1.2.0
+### Latest Release — v1.3.0
 
 | File | Size | SHA-256 |
 |------|------|---------|
-| [app-release.apk](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.apk) | 15.13 MB | `A00730452B65196237FACE62C787F6249167EDD5FD7E055094E05FFE262532F6` |
-| [app-release.aab](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.aab) | 15.40 MB | `8478C45205F06C5A12E26076100B2F21E2B01F9EE4FA2926CB54B528CB633ECA` |
+| [app-release.apk](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.apk) | 120.32 MB | `1533ed784e7281a7aecb69425ddb796df01f5a4bef61b22b6283e494a622ffb4` |
+| [app-release.aab](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.aab) | 119.73 MB | `c81be73eb52f8c02f543fa9dbe79a72dbed8f0f4771487acf295114084c7367a` |
 
 ### Requirements
 - Android 7.0 (API 24) or higher
