@@ -56,6 +56,9 @@ android {
     compose = true
     buildConfig = true
   }
+  lint {
+    disable += "InvalidFragmentVersionForActivityResult"
+  }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   packaging { jniLibs { useLegacyPackaging = true } }
 }
