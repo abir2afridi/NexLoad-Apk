@@ -1,4 +1,4 @@
-name: Feature Request
+name: "💡 Feature Request"
 description: Suggest an idea or improvement for NexLoad
 title: "[FEATURE]: "
 labels: [feature-request]
@@ -7,16 +7,21 @@ body:
   - type: checkboxes
     id: duplicate-check
     attributes:
-      label: Prerequisites
+      label: "✅ Prerequisites"
       options:
-        - label: I have searched existing issues and feature requests and this is not a duplicate
+        - label: "🔍 I have searched existing issues and feature requests and this is not a duplicate"
           required: true
-        - label: I have checked the project README and changelog
+        - label: "📖 I have checked the project README and changelog"
           required: true
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 💭 Feature Description
   - type: textarea
     id: problem-statement
     attributes:
-      label: Problem Statement
+      label: "🤔 Problem Statement"
       description: What problem does this solve? What are you currently unable to do?
       placeholder: "I'm trying to ... but I can't because ..."
     validations:
@@ -24,7 +29,7 @@ body:
   - type: textarea
     id: current-limitation
     attributes:
-      label: Current Limitation
+      label: "🚧 Current Limitation"
       description: Describe the limitation or workaround you currently use
       placeholder: "I currently have to ... which is inconvenient because ..."
     validations:
@@ -32,7 +37,7 @@ body:
   - type: textarea
     id: proposed-solution
     attributes:
-      label: Proposed Solution
+      label: "✨ Proposed Solution"
       description: Describe the feature you would like to see
       placeholder: "It would be great if NexLoad could ..."
     validations:
@@ -40,53 +45,63 @@ body:
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternative Solutions
+      label: "🔄 Alternative Solutions"
       description: Have you considered any alternatives?
     validations:
       required: false
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 📊 Impact Assessment
   - type: dropdown
     id: value
     attributes:
-      label: User / Business Value
+      label: "💎 User / Business Value"
       options:
-        - Nice to have
-        - Useful for my workflow
-        - Blocks my use case
-        - Would make me recommend this project
-        - Critical for adoption
+        - "🌟 Nice to have"
+        - "👍 Useful for my workflow"
+        - "🚫 Blocks my use case"
+        - "⭐ Would make me recommend this project"
+        - "🔥 Critical for adoption"
     validations:
       required: true
   - type: dropdown
     id: benefits
     attributes:
-      label: Who Benefits
+      label: "👥 Who Benefits"
       multiple: true
       options:
-        - All users
-        - Power users
-        - Developers
-        - Privacy-conscious users
-        - Specific platform users (e.g., TikTok, Instagram)
+        - "👤 All users"
+        - "⚡ Power users"
+        - "💻 Developers"
+        - "🔒 Privacy-conscious users"
+        - "🎬 Specific platform users (e.g., TikTok, Instagram)"
     validations:
       required: true
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 📎 Supporting Material
   - type: textarea
     id: mockups
     attributes:
-      label: Mockups / References
+      label: "🎨 Mockups / References"
       description: Links to similar features in other apps, screenshots, or design ideas
     validations:
       required: false
   - type: textarea
     id: additional-context
     attributes:
-      label: Additional Context
+      label: "➕ Additional Context"
       description: Any other relevant information
     validations:
       required: false
   - type: checkboxes
     id: coc
     attributes:
-      label: Code of Conduct
+      label: "📜 Code of Conduct"
       options:
-        - label: I agree to follow this project's Code of Conduct
+        - label: "🤝 I agree to follow this project's Code of Conduct"
           required: true

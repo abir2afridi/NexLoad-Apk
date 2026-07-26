@@ -1,4 +1,4 @@
-name: Build Failure
+name: "🔨 Build Failure"
 description: Report a build or compilation issue in NexLoad
 title: "[BUILD]: "
 labels: [bug, needs-triage]
@@ -7,16 +7,21 @@ body:
   - type: checkboxes
     id: duplicate-check
     attributes:
-      label: Prerequisites
+      label: "✅ Prerequisites"
       options:
-        - label: I have searched existing issues and this is not a duplicate
+        - label: "🔍 I have searched existing issues and this is not a duplicate"
           required: true
-        - label: I have read the build instructions in the README
+        - label: "📖 I have read the build instructions in the README"
           required: true
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 🔧 Build Environment
   - type: input
     id: gradle-version
     attributes:
-      label: Gradle Version
+      label: "📦 Gradle Version"
       description: What Gradle version are you using?
       placeholder: "e.g., 9.6.1"
     validations:
@@ -24,7 +29,7 @@ body:
   - type: input
     id: jdk-version
     attributes:
-      label: JDK Version
+      label: "☕ JDK Version"
       description: What Java / JDK version?
       placeholder: "e.g., JDK 21, JDK 17"
     validations:
@@ -32,29 +37,34 @@ body:
   - type: dropdown
     id: build-type
     attributes:
-      label: Build Type
+      label: "🏗️ Build Type"
       options:
-        - debug (assembleDebug)
-        - release (assembleRelease)
-        - bundle (bundleRelease)
-        - Clean build
-        - Incremental build
+        - "🔨 debug (assembleDebug)"
+        - "🚀 release (assembleRelease)"
+        - "📦 bundle (bundleRelease)"
+        - "🧹 Clean build"
+        - "⚡ Incremental build"
     validations:
       required: true
   - type: dropdown
     id: os
     attributes:
-      label: Operating System
+      label: "💻 Operating System"
       options:
-        - Windows
-        - macOS
-        - Linux
+        - "🪟 Windows"
+        - "🍎 macOS"
+        - "🐧 Linux"
     validations:
       required: true
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 📝 Build Error Details
   - type: textarea
     id: description
     attributes:
-      label: Description
+      label: "📛 Description"
       description: What build command did you run and what went wrong?
       placeholder: "I ran ./gradlew assembleDebug and got ..."
     validations:
@@ -62,7 +72,7 @@ body:
   - type: textarea
     id: reproduction-steps
     attributes:
-      label: Steps to Reproduce
+      label: "🔄 Steps to Reproduce"
       placeholder: |
         1. Clone the repo
         2. Run ./gradlew assembleDebug
@@ -73,22 +83,23 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Full Build Log
+      label: "📋 Full Build Log"
       description: Paste the complete error output (use a Gist if very long)
+      placeholder: "Paste build output here..."
       render: shell
     validations:
       required: true
   - type: textarea
     id: additional-context
     attributes:
-      label: Additional Context
+      label: "➕ Additional Context"
       description: Any local modifications, environment details, or troubleshooting already attempted
     validations:
       required: false
   - type: checkboxes
     id: coc
     attributes:
-      label: Code of Conduct
+      label: "📜 Code of Conduct"
       options:
-        - label: I agree to follow this project's Code of Conduct
+        - label: "🤝 I agree to follow this project's Code of Conduct"
           required: true

@@ -1,47 +1,47 @@
-## Summary
+## 📋 Summary
 <!-- What does this PR do? Why? Link any related issues: Fixes #123 -->
 
-## Type of Change
+## 🏷️ Type of Change
 <!-- Check all that apply -->
-- [ ] Bug fix (non-breaking)
-- [ ] New feature (non-breaking)
-- [ ] Breaking change (fix or feature that breaks existing functionality)
-- [ ] Documentation update
-- [ ] Style / UI improvement
-- [ ] Code refactoring (no functional changes)
-- [ ] Performance improvement
-- [ ] Security fix
-- [ ] Configuration / tooling change
-- [ ] Tests only
+- [ ] 🐛 Bug fix (non-breaking)
+- [ ] ✨ New feature (non-breaking)
+- [ ] 💥 Breaking change (fix or feature that breaks existing functionality)
+- [ ] 📝 Documentation update
+- [ ] 🎨 Style / UI improvement
+- [ ] ♻️ Code refactoring (no functional changes)
+- [ ] ⚡ Performance improvement
+- [ ] 🔒 Security fix
+- [ ] 🔧 Configuration / tooling change
+- [ ] 🧪 Tests only
 
-## Related Issues
+## 🔗 Related Issues
 Closes # <!-- Issue number -->
 
-## Changes Made
+## 📂 Changes Made
 <!-- Bullet list of specific changes -->
 -
 -
 
-## Testing
+## 🧪 Testing
 <!-- How did you test this? -->
-- [ ] Build passes (`./gradlew assembleDebug`)
-- [ ] Unit tests pass (`./gradlew test`)
-- [ ] Manual testing performed (describe below)
+- [ ] ✅ Build passes (`./gradlew assembleDebug`)
+- [ ] ✅ Unit tests pass (`./gradlew test`)
+- [ ] 👨‍🔬 Manual testing performed (describe below)
 
 **Manual testing steps:**
 1.
 2.
 
-## Screenshots (if UI changes)
+## 📸 Screenshots (if UI changes)
 <!-- Before / After screenshots or screen recording -->
 
-## Breaking Changes
+## ⚠️ Breaking Changes
 <!-- If breaking: what breaks, migration path, documentation update needed -->
 
-## Checklist
-- [ ] My code follows the project's coding style
-- [ ] I ran `./gradlew lint` with no errors
-- [ ] I have added tests for new functionality (if applicable)
-- [ ] I have updated documentation if needed
-- [ ] I have read the CONTRIBUTING.md
-- [ ] My changes generate no new warnings
+## ✅ Checklist
+- [ ] 💅 My code follows the project's coding style
+- [ ] 🔍 I ran `./gradlew lint` with no errors
+- [ ] 🧪 I have added tests for new functionality (if applicable)
+- [ ] 📖 I have updated documentation if needed
+- [ ] 📜 I have read the CONTRIBUTING.md
+- [ ] 🚫 My changes generate no new warnings

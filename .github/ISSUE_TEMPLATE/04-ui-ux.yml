@@ -1,4 +1,4 @@
-name: UI / UX Feedback
+name: "🎨 UI / UX Feedback"
 description: Report a visual bug, layout issue, or UX improvement suggestion
 title: "[UI]: "
 labels: [ui]
@@ -7,99 +7,115 @@ body:
   - type: checkboxes
     id: duplicate-check
     attributes:
-      label: Prerequisites
+      label: "✅ Prerequisites"
       options:
-        - label: I have searched existing issues and this is not a duplicate
+        - label: "🔍 I have searched existing issues and this is not a duplicate"
           required: true
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 📍 Location & Type
   - type: dropdown
     id: affected-area
     attributes:
-      label: Affected Screen / Component
+      label: "📟 Affected Screen / Component"
+      description: Which part of the app has the issue?
       multiple: true
       options:
-        - Dashboard (link input + video info)
-        - Browser (WebView tab)
-        - Downloads (active queue)
-        - Files (library / categories)
-        - Vault (PIN-protected storage)
-        - Settings (preferences, themes, login)
-        - Download dialog (quality / thread selection)
-        - Video player
-        - Navigation / bottom bar
-        - Theme / colors / dark mode
-        - Other
+        - "🏠 Dashboard (link input + video info)"
+        - "🌐 Browser (WebView tab)"
+        - "📥 Downloads (active queue)"
+        - "📁 Files (library / categories)"
+        - "🔒 Vault (PIN-protected storage)"
+        - "⚙️ Settings (preferences, themes, login)"
+        - "💾 Download dialog (quality / thread selection)"
+        - "🎬 Video player"
+        - "🧭 Navigation / bottom bar"
+        - "🎭 Theme / colors / dark mode"
+        - "❓ Other"
     validations:
       required: true
   - type: dropdown
     id: issue-type
     attributes:
-      label: Issue Type
+      label: "🏷️ Issue Type"
       options:
-        - Visual bug (distorted, overlapping, misaligned)
-        - Layout broken (responsive issue)
-        - Poor usability (confusing, hard to use)
-        - Inconsistent design (style mismatch)
-        - Missing feedback (no loading/error state)
-        - Confusing flow (unclear steps)
-        - Animation / transition issue
-        - Other
+        - "👁️ Visual bug (distorted, overlapping, misaligned)"
+        - "💔 Layout broken (responsive issue)"
+        - "🤷 Poor usability (confusing, hard to use)"
+        - "🎭 Inconsistent design (style mismatch)"
+        - "🔇 Missing feedback (no loading/error state)"
+        - "🌀 Confusing flow (unclear steps)"
+        - "✨ Animation / transition issue"
+        - "❓ Other"
     validations:
       required: true
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 📱 Environment
   - type: dropdown
     id: device-type
     attributes:
-      label: Device Type
+      label: "📟 Device Type"
       options:
-        - Phone
-        - Tablet
-        - All
+        - "📱 Phone"
+        - "📟 Tablet"
+        - "🔲 All"
     validations:
       required: true
   - type: dropdown
     id: theme
     attributes:
-      label: Theme
+      label: "🎭 Theme"
       options:
-        - Light mode
-        - Dark mode
-        - AMOLED Black mode
-        - System default
-        - All themes
+        - "☀️ Light mode"
+        - "🌙 Dark mode"
+        - "⬛ AMOLED Black mode"
+        - "⚙️ System default"
+        - "🔲 All themes"
     validations:
       required: true
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 📝 Description
   - type: textarea
     id: description
     attributes:
-      label: Description
+      label: "📛 Description"
       description: What does the issue look like? Be as specific as possible
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Expected Appearance / Behavior
+      label: "✅ Expected Appearance / Behavior"
       description: What should it look like or how should it behave?
     validations:
       required: true
   - type: textarea
     id: screenshots
     attributes:
-      label: Screenshots
+      label: "📸 Screenshots"
       description: Required for UI issues — attach before/after screenshots or recordings
-      placeholder: Drag and drop images here
+      placeholder: "Drag and drop images here"
     validations:
       required: true
   - type: textarea
     id: suggestion
     attributes:
-      label: Suggested Improvement
+      label: "💡 Suggested Improvement"
       description: How would you improve this?
     validations:
       required: false
   - type: checkboxes
     id: coc
     attributes:
-      label: Code of Conduct
+      label: "📜 Code of Conduct"
       options:
-        - label: I agree to follow this project's Code of Conduct
+        - label: "🤝 I agree to follow this project's Code of Conduct"
           required: true

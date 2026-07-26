@@ -1,4 +1,4 @@
-name: Security Vulnerability Report
+name: "🔒 Security Vulnerability Report"
 description: Report a security vulnerability — do NOT file a public issue
 title: "[SECURITY]: Private report required"
 labels: [security]
@@ -6,29 +6,38 @@ body:
   - type: markdown
     attributes:
       value: |
-        ## Reporting Security Vulnerabilities
+        ## 🚨 STOP! This is NOT the right place for security reports.
 
-        This is NOT the correct place to report security vulnerabilities.
-        Public issues expose all users to risk.
+        ⚠️ **Public issues expose all users to risk.** Please use one of these **private** channels instead:
 
-        Please use one of these **private** channels instead:
+        ---
 
-        - **GitHub Security Advisories**: [Report a vulnerability](../../security/advisories/new)
-        - **Email**: abir2afridi@gmail.com
+        | Method | Link / Address |
+        |--------|----------------|
+        | 🛡️ **GitHub Security Advisories** | [Click here to report privately](../../security/advisories/new) |
+        | 📧 **Email** | [abir2afridi@gmail.com](mailto:abir2afridi@gmail.com) |
+
+        ---
+
+        ### 🔐 What's in scope for NexLoad?
 
         NexLoad handles sensitive data including:
-        - Social media login cookies (Instagram, Facebook)
-        - Private vault files (PIN-protected storage)
-        - Download history and bookmarks
-        - Local storage management
+        - 🍪 Social media login cookies (Instagram, Facebook)
+        - 🔏 Private vault files (PIN/biometric-protected storage)
+        - 📜 Download history and bookmarks
+        - 💾 Local file system access
 
-        Thank you for helping keep NexLoad and its users safe.
+        ### 🌟 Thank you
+
+        Your help keeping NexLoad secure is greatly appreciated. We respond to all reports within **72 hours**.
+
+        ---
   - type: checkboxes
     id: acknowledgement
     attributes:
-      label: I Understand
+      label: "✅ I Understand"
       options:
         - label: >
-            I understand this is not the right form for security reports.
+            🛡️ I understand this is not the right form for security reports.
             I will use the private reporting channels above.
           required: true
