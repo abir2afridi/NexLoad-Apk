@@ -839,159 +839,265 @@ fun DashboardTab(
                                 }
                             }
 
-                            if (extractedVideoInfo != null) {
-                                val info = extractedVideoInfo!!
-                                val hasAudio = !info.audioUrl.isNullOrBlank()
-                                val hasVideo = !info.videoUrl.isNullOrBlank()
+                            // =========================================================================
+                            // VIDEO INFO CARD — Always visible frame, content swaps after extraction
+                            // =========================================================================
+                            // DESIGN:
+                            // - The card container is ALWAYS rendered (not gated behind extractedVideoInfo != null)
+                            // - Thumbnail area, Title/Author/Duration labels are always visible
+                            // - Before extraction: shows placeholder icons/values
+                            // - After extraction: placeholder values are replaced with real data
+                            // - Quality (Auto/HD) and Format (Video/Audio) buttons only appear after fetch
+                            // - Download button only appears after fetch
+                            // - Clear/Dismiss button always visible to reset the form
+                            //
+                            // RULES:
+                            // - NEVER gate this entire card behind extractedVideoInfo — it must always be visible
+                            // - NEVER remove the label text (Title, Author, Duration, Output) — they are static
+                            // =========================================================================
+                            val info = extractedVideoInfo
+                            val hasAudio = info?.audioUrl?.isNullOrBlank() == false
+                            val hasVideo = info?.videoUrl?.isNullOrBlank() == false
 
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            ) {
                                 Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    AsyncImage(
-                                        model = info.thumbnail,
-                                        contentDescription = null,
+                                    // ---- THUMBNAIL FRAME (always visible) ----
+                                    Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .heightIn(max = 160.dp)
-                                            .clip(RoundedCornerShape(12.dp)),
-                                        contentScale = ContentScale.Crop,
-                                    )
+                                            .heightIn(min = 80.dp, max = 160.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (info != null && info.thumbnail.isNotBlank()) {
+                                            AsyncImage(
+                                                model = info.thumbnail,
+                                                contentDescription = null,
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop,
+                                            )
+                                        } else {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Outlined.Movie,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(32.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                                )
+                                                Text(
+                                                    text = "Video Preview",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                                )
+                                            }
+                                        }
+                                    }
 
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    // ---- TITLE (always visible label + value) ----
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            text = info.title.ifBlank { "Untitled Video" },
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
+                                            text = "Title",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.width(64.dp)
+                                        )
+                                        Text(
+                                            text = if (info != null && info.title.isNotBlank()) info.title else "—",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (info != null) MaterialTheme.colorScheme.onSurface
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
                                         )
-                                        if (info.author.isNotBlank()) {
-                                            Text(
-                                                text = info.author,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                        if (info.duration > 0) {
-                                            Text(
-                                                text = formatDuration(info.duration),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                            )
-                                        }
                                     }
 
-                                    if (hasAudio || hasVideo) {
+                                    // ---- AUTHOR (always visible label + value) ----
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Author",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.width(64.dp)
+                                        )
+                                        Text(
+                                            text = if (info != null && info.author.isNotBlank()) info.author else "—",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (info != null) MaterialTheme.colorScheme.onSurface
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+
+                                    // ---- DURATION (always visible label + value) ----
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Duration",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.width(64.dp)
+                                        )
+                                        Text(
+                                            text = if (info != null && info.duration > 0) formatDuration(info.duration) else "—",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (info != null) MaterialTheme.colorScheme.onSurface
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 2.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                                    )
+
+                                    // ---- OUTPUT (always visible label) ----
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Output",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.width(64.dp)
+                                        )
+                                        Text(
+                                            text = if (info != null) "Ready to download" else "Awaiting analysis...",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (info != null) MaterialTheme.colorScheme.onSurface
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                        )
+                                    }
+
+                                    // ---- QUALITY & FORMAT — only visible after successful extraction ----
+                                    if (info != null) {
+                                        // Quality selector (Auto / HD)
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            if (hasVideo) {
+                                            listOf("Auto", "HD").forEachIndexed { index, quality ->
                                                 Surface(
-                                                    onClick = { selectedDownloadType = 0 },
+                                                    onClick = { },
                                                     shape = RoundedCornerShape(10.dp),
-                                                    color = if (selectedDownloadType == 0) MaterialTheme.colorScheme.primaryContainer
-                                                            else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                    border = if (selectedDownloadType == 0) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                                    color = if (index == 0) MaterialTheme.colorScheme.primaryContainer
+                                                            else MaterialTheme.colorScheme.surfaceContainerHigh
                                                 ) {
                                                     Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(Icons.Outlined.VideoFile, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                        Spacer(Modifier.width(6.dp))
-                                                        Text("Video", style = MaterialTheme.typography.labelLarge)
-                                                    }
-                                                }
-                                            }
-                                            if (hasAudio) {
-                                                Surface(
-                                                    onClick = { selectedDownloadType = 1 },
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    color = if (selectedDownloadType == 1) MaterialTheme.colorScheme.primaryContainer
-                                                            else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                    border = if (selectedDownloadType == 1) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                                                ) {
-                                                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(Icons.Outlined.Audiotrack, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                        Spacer(Modifier.width(6.dp))
-                                                        Text("Audio", style = MaterialTheme.typography.labelLarge)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        listOf("Auto", "HD").forEachIndexed { index, quality ->
-                                            Surface(
-                                                onClick = { },
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = if (index == 0) MaterialTheme.colorScheme.primaryContainer
-                                                        else MaterialTheme.colorScheme.surfaceContainerHigh
-                                            ) {
-                                                Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(
-                                                        if (index == 0) Icons.Default.PlayCircle else Icons.Default.VideoLibrary,
-                                                        contentDescription = null, modifier = Modifier.size(16.dp)
-                                                    )
-                                                    Spacer(Modifier.width(6.dp))
-                                                    Text(quality, style = MaterialTheme.typography.labelLarge)
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Surface(
-                                        onClick = {
-                                            if (isDownloadingFromStream) return@Surface
-                                            isDownloadingFromStream = true
-                                            scope.launch {
-                                                try {
-                                                    val downloadUrl = if (selectedDownloadType == 1) {
-                                                        info.audioUrl ?: info.videoUrl
-                                                    } else {
-                                                        info.videoUrlNoWatermark ?: info.videoUrl
-                                                    }
-                                                    if (downloadUrl != null) {
-                                                        viewModel.addDownload(
-                                                            url = downloadUrl,
-                                                            suggestedTitle = info.title.ifBlank { "Video" },
-                                                            quality = "Auto",
-                                                            isAudioOnly = selectedDownloadType == 1,
-                                                            customHeaders = info.httpHeaders,
-                                                            sourceUrl = info.sourceUrl
+                                                        Icon(
+                                                            if (index == 0) Icons.Default.PlayCircle else Icons.Default.VideoLibrary,
+                                                            contentDescription = null, modifier = Modifier.size(16.dp)
                                                         )
-                                                        Toast.makeText(context, "Download queued → view progress in Downloads tab", Toast.LENGTH_SHORT).show()
-                                                        extractedVideoInfo = null
-                                                    } else {
-                                                        Toast.makeText(context, "No download URL available", Toast.LENGTH_SHORT).show()
+                                                        Spacer(Modifier.width(6.dp))
+                                                        Text(quality, style = MaterialTheme.typography.labelLarge)
                                                     }
-                                                } catch (e: Exception) {
-                                                    Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                                                } finally {
-                                                    isDownloadingFromStream = false
                                                 }
                                             }
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = MaterialTheme.colorScheme.primary
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically
+                                        }
+
+                                        // Format selector (Video / Audio)
+                                        if (hasAudio || hasVideo) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                if (hasVideo) {
+                                                    Surface(
+                                                        onClick = { selectedDownloadType = 0 },
+                                                        shape = RoundedCornerShape(10.dp),
+                                                        color = if (selectedDownloadType == 0) MaterialTheme.colorScheme.primaryContainer
+                                                                else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                        border = if (selectedDownloadType == 0) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                                    ) {
+                                                        Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                            Icon(Icons.Outlined.VideoFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                            Spacer(Modifier.width(6.dp))
+                                                            Text("Video", style = MaterialTheme.typography.labelLarge)
+                                                        }
+                                                    }
+                                                }
+                                                if (hasAudio) {
+                                                    Surface(
+                                                        onClick = { selectedDownloadType = 1 },
+                                                        shape = RoundedCornerShape(10.dp),
+                                                        color = if (selectedDownloadType == 1) MaterialTheme.colorScheme.primaryContainer
+                                                                else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                        border = if (selectedDownloadType == 1) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                                                    ) {
+                                                        Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                            Icon(Icons.Outlined.Audiotrack, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                            Spacer(Modifier.width(6.dp))
+                                                            Text("Audio", style = MaterialTheme.typography.labelLarge)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Download button
+                                        Surface(
+                                            onClick = {
+                                                if (isDownloadingFromStream) return@Surface
+                                                isDownloadingFromStream = true
+                                                scope.launch {
+                                                    try {
+                                                        val downloadUrl = if (selectedDownloadType == 1) {
+                                                            info.audioUrl ?: info.videoUrl
+                                                        } else {
+                                                            info.videoUrlNoWatermark ?: info.videoUrl
+                                                        }
+                                                        if (downloadUrl != null) {
+                                                            viewModel.addDownload(
+                                                                url = downloadUrl,
+                                                                suggestedTitle = info.title.ifBlank { "Video" },
+                                                                quality = "Auto",
+                                                                isAudioOnly = selectedDownloadType == 1,
+                                                                customHeaders = info.httpHeaders,
+                                                                sourceUrl = info.sourceUrl
+                                                            )
+                                                            Toast.makeText(context, "Download queued → view progress in Downloads tab", Toast.LENGTH_SHORT).show()
+                                                            extractedVideoInfo = null
+                                                        } else {
+                                                            Toast.makeText(context, "No download URL available", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                    } finally {
+                                                        isDownloadingFromStream = false
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.primary
                                         ) {
-                                            Icon(
-                                                if (selectedDownloadType == 1) Icons.Default.MusicNote else Icons.Default.Download,
-                                                contentDescription = null, modifier = Modifier.size(18.dp),
-                                                tint = MaterialTheme.colorScheme.onPrimary
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = if (isDownloadingFromStream) "Starting..." else if (selectedDownloadType == 1) "Download Audio" else "Download Video",
-                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                color = MaterialTheme.colorScheme.onPrimary
-                                            )
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    if (selectedDownloadType == 1) Icons.Default.MusicNote else Icons.Default.Download,
+                                                    contentDescription = null, modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = if (isDownloadingFromStream) "Starting..." else if (selectedDownloadType == 1) "Download Audio" else "Download Video",
+                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                    color = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                            }
                                         }
                                     }
 
+                                    // Clear / Dismiss button (always visible)
                                     Surface(
                                         onClick = {
                                             extractedVideoInfo = null
@@ -1010,13 +1116,13 @@ fun DashboardTab(
                                             Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Spacer(Modifier.width(6.dp))
                                             Text("Clear", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
                 }
             }
-        }
         }
 
         // 3. UNIFIED AND SLEEK PORTALS (BROWSER & VAULT)
