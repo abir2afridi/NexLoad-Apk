@@ -503,92 +503,91 @@ fun BrowserTab(viewModel: MainViewModel) {
                     browsingHistory = browsingHistory
                 )
             } else {
-            // Multi-tab WebView container
-            // Each tab has its own WebView instance stored in webViewInstances map
-            AndroidView(
-                factory = { ctx ->
-                    FrameLayout(ctx).apply {
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                    }
-                },
-                update = { container ->
-                    val activeId = activeTabId ?: return@AndroidView
-                    container.removeAllViews()
-
-                    val tabData = tabs.find { it.id == activeId }
-                    val tabIsIncognito = tabData?.isIncognito ?: false
-
-                    val webView = webViewInstances.getOrPut(activeId) {
-                        createWebView(
-                            context = container.context,
-                            isIncognito = tabIsIncognito,
-                            isTrackerBlocking = isTrackerBlocking,
-                            isAdBlocking = isAdBlocking,
-                            isForceDarkWeb = isForceDarkWeb,
-                            textSizePercent = textSizePercent,
-                            userAgentMode = userAgentMode,
-                            isDataSaving = isDataSaving,
-                            isBlockPopups = isBlockPopups,
-                            cookieMode = cookieMode,
-                            locationPermission = locationPermission,
-                            notificationPermission = notificationPermission,
-                            microphonePermission = microphonePermission,
-                            externalAppsPolicy = externalAppsPolicy,
-                            onProgressChanged = { progressVal = it },
-                            onPageStarted = { url ->
-                                viewModel.clearDetectedMedia()
-                                if (url != null) {
-                                    viewModel.updateActiveTabUrl(url)
-                                }
-                            },
-                            onPageFinished = { view, url ->
-                                val title = view?.title ?: ""
-                                viewModel.updateActiveTabTitle(title)
-                                if (!url.isNullOrBlank()) {
-                                    try { DownloadEngine.lastPageUrl = url } catch (_: Exception) {}
-                                }
-                                // Save history only for non-incognito tabs
-                                if (!tabIsIncognito && !url.isNullOrBlank()) {
-                                    viewModel.addHistoryEntry(url, title.ifBlank { url })
-                                }
-                            },
-                            onMediaDetected = { mediaUrl, mediaTitle ->
-                                viewModel.addDetectedMedia(mediaUrl, mediaTitle)
-                            },
-                            onShouldIntercept = { urlStr ->
-                                AdBlocker.isBlocked(urlStr, isAdBlocking, isTrackerBlocking)
-                            },
-                            onNotificationGranted = { origin ->
-                                viewModel.addNotificationSite(origin)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    AndroidView(
+                        modifier = Modifier.weight(1f),
+                        factory = { ctx ->
+                            FrameLayout(ctx).apply {
+                                layoutParams = FrameLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                )
                             }
-                        ).also { wv ->
-                            val url = tabData?.url ?: "about:blank"
-                            if (url != "about:blank") {
-                                wv.loadUrl(url)
+                        },
+                        update = { container ->
+                            val activeId = activeTabId ?: return@AndroidView
+                            container.removeAllViews()
+
+                            val tabData = tabs.find { it.id == activeId }
+                            val tabIsIncognito = tabData?.isIncognito ?: false
+
+                            val webView = webViewInstances.getOrPut(activeId) {
+                                createWebView(
+                                    context = container.context,
+                                    isIncognito = tabIsIncognito,
+                                    isTrackerBlocking = isTrackerBlocking,
+                                    isAdBlocking = isAdBlocking,
+                                    isForceDarkWeb = isForceDarkWeb,
+                                    textSizePercent = textSizePercent,
+                                    userAgentMode = userAgentMode,
+                                    isDataSaving = isDataSaving,
+                                    isBlockPopups = isBlockPopups,
+                                    cookieMode = cookieMode,
+                                    locationPermission = locationPermission,
+                                    notificationPermission = notificationPermission,
+                                    microphonePermission = microphonePermission,
+                                    externalAppsPolicy = externalAppsPolicy,
+                                    onProgressChanged = { progressVal = it },
+                                    onPageStarted = { url ->
+                                        viewModel.clearDetectedMedia()
+                                        if (url != null) {
+                                            viewModel.updateActiveTabUrl(url)
+                                        }
+                                    },
+                                    onPageFinished = { view, url ->
+                                        val title = view?.title ?: ""
+                                        viewModel.updateActiveTabTitle(title)
+                                        if (!url.isNullOrBlank()) {
+                                            try { DownloadEngine.lastPageUrl = url } catch (_: Exception) {}
+                                        }
+                                        if (!tabIsIncognito && !url.isNullOrBlank()) {
+                                            viewModel.addHistoryEntry(url, title.ifBlank { url })
+                                        }
+                                    },
+                                    onMediaDetected = { mediaUrl, mediaTitle ->
+                                        viewModel.addDetectedMedia(mediaUrl, mediaTitle)
+                                    },
+                                    onShouldIntercept = { urlStr ->
+                                        AdBlocker.isBlocked(urlStr, isAdBlocking, isTrackerBlocking)
+                                    },
+                                    onNotificationGranted = { origin ->
+                                        viewModel.addNotificationSite(origin)
+                                    }
+                                ).also { wv ->
+                                    val url = tabData?.url ?: "about:blank"
+                                    if (url != "about:blank") {
+                                        wv.loadUrl(url)
+                                    }
+                                }
+                            }
+
+                            webViewInstance = webView
+
+                            container.addView(webView, FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            ))
+
+                            webView.settings.textZoom = textSizePercent
+                            if (userAgentMode == "Desktop") {
+                                webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                            } else {
+                                webView.settings.userAgentString = null
                             }
                         }
-                    }
-
-                    // Update webViewInstance reference
-                    webViewInstance = webView
-
-                    container.addView(webView, FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    ))
-
-                    // Apply live settings to existing webview (text size, user agent, etc.)
-                    webView.settings.textZoom = textSizePercent
-                    if (userAgentMode == "Desktop") {
-                        webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                    } else {
-                        webView.settings.userAgentString = null // reset to default mobile UA
-                    }
+                    )
+                    Spacer(modifier = Modifier.height(120.dp))
                 }
-            )
             } // end else (not showHome)
         }
 

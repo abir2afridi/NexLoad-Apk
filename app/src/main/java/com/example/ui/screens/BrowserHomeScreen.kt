@@ -440,7 +440,7 @@ fun BrowserHomeScreen(
         }
 
         // Bottom padding for nav bar
-        Spacer(modifier = Modifier.height(90.dp))
+        Spacer(modifier = Modifier.height(120.dp))
     }
 }
 
