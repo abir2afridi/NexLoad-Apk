@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Community Discussions
+    url: https://github.com/abir2afridi/NexLoad-Apk/discussions
+    about: Ask questions, share ideas, and get help from the community
+  - name: Documentation
+    url: https://github.com/abir2afridi/NexLoad-Apk#readme
+    about: Read the README and documentation before opening an issue
+  - name: Security Vulnerabilities
+    url: https://github.com/abir2afridi/NexLoad-Apk/security/advisories/new
+    about: Report security issues privately — do NOT open a public issue

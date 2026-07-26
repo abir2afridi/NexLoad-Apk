@@ -1,0 +1,34 @@
+name: Security Vulnerability Report
+description: Report a security vulnerability — do NOT file a public issue
+title: "[SECURITY]: Private report required"
+labels: [security]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Reporting Security Vulnerabilities
+
+        This is NOT the correct place to report security vulnerabilities.
+        Public issues expose all users to risk.
+
+        Please use one of these **private** channels instead:
+
+        - **GitHub Security Advisories**: [Report a vulnerability](../../security/advisories/new)
+        - **Email**: abir2afridi@gmail.com
+
+        NexLoad handles sensitive data including:
+        - Social media login cookies (Instagram, Facebook)
+        - Private vault files (PIN-protected storage)
+        - Download history and bookmarks
+        - Local storage management
+
+        Thank you for helping keep NexLoad and its users safe.
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: I Understand
+      options:
+        - label: >
+            I understand this is not the right form for security reports.
+            I will use the private reporting channels above.
+          required: true

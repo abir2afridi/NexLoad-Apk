@@ -1,0 +1,76 @@
+name: Documentation Issue
+description: Report missing, incorrect, or outdated documentation
+title: "[DOCS]: "
+labels: [documentation]
+assignees: []
+body:
+  - type: checkboxes
+    id: duplicate-check
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+  - type: dropdown
+    id: doc-area
+    attributes:
+      label: Documentation Area
+      options:
+        - README.md
+        - CHANGELOG.md
+        - RELEASE_NOTES.md
+        - docs/ folder
+        - GitHub wiki
+        - Code comments / inline documentation
+        - Issue / PR templates
+        - Build / setup documentation
+    validations:
+      required: true
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Issue Type
+      options:
+        - Missing
+        - Incorrect
+        - Outdated
+        - Hard to understand
+        - Typo / formatting
+    validations:
+      required: true
+  - type: input
+    id: page-link
+    attributes:
+      label: Link to Problematic Page
+      description: Provide a link or file path to the documentation in question
+      placeholder: "e.g., https://github.com/abir2afridi/NexLoad-Apk#readme"
+    validations:
+      required: false
+  - type: textarea
+    id: description
+    attributes:
+      label: What Is Wrong?
+      description: Clearly describe the issue with the documentation
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How should this be fixed or improved?
+    validations:
+      required: false
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to submit a pull request to fix this
+          required: false
+  - type: checkboxes
+    id: coc
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

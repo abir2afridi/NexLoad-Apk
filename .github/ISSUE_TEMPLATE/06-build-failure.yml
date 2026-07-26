@@ -1,0 +1,94 @@
+name: Build Failure
+description: Report a build or compilation issue in NexLoad
+title: "[BUILD]: "
+labels: [bug, needs-triage]
+assignees: []
+body:
+  - type: checkboxes
+    id: duplicate-check
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I have read the build instructions in the README
+          required: true
+  - type: input
+    id: gradle-version
+    attributes:
+      label: Gradle Version
+      description: What Gradle version are you using?
+      placeholder: "e.g., 9.6.1"
+    validations:
+      required: true
+  - type: input
+    id: jdk-version
+    attributes:
+      label: JDK Version
+      description: What Java / JDK version?
+      placeholder: "e.g., JDK 21, JDK 17"
+    validations:
+      required: true
+  - type: dropdown
+    id: build-type
+    attributes:
+      label: Build Type
+      options:
+        - debug (assembleDebug)
+        - release (assembleRelease)
+        - bundle (bundleRelease)
+        - Clean build
+        - Incremental build
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What build command did you run and what went wrong?
+      placeholder: "I ran ./gradlew assembleDebug and got ..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Clone the repo
+        2. Run ./gradlew assembleDebug
+        3. See error
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Full Build Log
+      description: Paste the complete error output (use a Gist if very long)
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any local modifications, environment details, or troubleshooting already attempted
+    validations:
+      required: false
+  - type: checkboxes
+    id: coc
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

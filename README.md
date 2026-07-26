@@ -4,17 +4,17 @@
   <img src="app/NexLoad.png" alt="NexLoad Logo" width="192">
 </p>
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/abir2afridi/NexLoad/releases/tag/v1.1.0)
-[![Release](https://img.shields.io/github/release/abir2afridi/NexLoad.svg)](https://github.com/abir2afridi/NexLoad/releases/latest)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.2.0)
+[![Release](https://img.shields.io/github/release/abir2afridi/NexLoad-Apk.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-brightgreen.svg)](https://developer.android.com/about/versions/nougat)
 [![API](https://img.shields.io/badge/API-24%E2%80%9336-blueviolet.svg)](https://developer.android.com/studio/releases/platforms)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org/)
 [![Build](https://img.shields.io/badge/build-passing-success.svg)](.github/workflows/release.yml)
 
-[⬇️ Download Latest APK](https://github.com/abir2afridi/NexLoad/releases/latest/download/app-release.apk)
+[⬇️ Download Latest APK](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.apk)
 &nbsp;|&nbsp;
-[📜 Release Notes](https://github.com/abir2afridi/NexLoad/releases/latest)
+[📜 Release Notes](https://github.com/abir2afridi/NexLoad-Apk/releases/latest)
 &nbsp;|&nbsp;
 [📋 Changelog](CHANGELOG.md)
 
@@ -25,13 +25,13 @@ An Android application for downloading videos and media from the web with a buil
 - **In-App Browser** — Full WebView with incognito mode, HTTPS-only toggle, tracker blocking, bookmarking, and media detection via JavaScript bridge
 - **Multi-Threaded Download Engine** — Segmented (chunked) downloads with pause/resume, real-time speed tracking, and adaptive threading
 - **Analyze-First UX** — Paste any link on the dashboard, tap Analyze, see platform info + quality options, then download
-- **Multi-Platform Video Downloader** — Supports TikTok, Instagram, Facebook, Twitter/X, Reddit, Pinterest, SoundCloud, Vimeo, Twitch, Dailymotion, Tumblr, and ANY website via generic fallback extraction
+- **Multi-Platform Video Downloader** — Supports TikTok, Instagram, Facebook, Twitter/X, Reddit, Pinterest, SoundCloud, Vimeo, Twitch, Dailymotion, Tumblr, Steam, and ANY website via generic fallback extraction
 - **TikTok Downloader** — TikWM API + 9 fallback strategies for HD no-watermark, watermarked, and audio-only downloads
-- **Instagram Downloader** — 3-strategy chain: GraphQL POST API (doc_id + X-IG-App-ID, primary), page HTML with Firefox desktop headers (og:video fallback), JSON-LD VideoObject (tertiary)
+- **Instagram Downloader** — 3-strategy chain: GraphQL POST API (doc_id + X-IG-App-ID, primary), page HTML with Firefox desktop headers (og:video fallback), JSON-LD VideoObject (tertiary); cookie-authenticated session via InstagramLoginActivity WebView
 - **Facebook Downloader** — 3-strategy custom extraction (m.facebook.com → www → mbasic), no yt-dlp dependency, User-Agent: facebookexternalhit/1.1 for CDN, cookie injection, share URL resolution
 - **Pinterest Downloader** — 5-strategy extraction: og:video, JSON-LD VideoObject, relay script data with brace-counting JSON parser, contentUrl regex, pinimg CDN URL; pin.it short URL resolution; browser headers for server-side rendering
-- **Instagram Downloader** — 3-strategy extraction with dedicated page fetcher (Firefox desktop headers): GraphQL POST (doc_id + X-IG-App-ID) → page og:video meta → JSON-LD VideoObject; cookie-authenticated session via InstagramLoginActivity WebView
 - **Twitter/X Downloader** — og:video, twitter:player:stream, and CDN URL extraction
+- **Steam Downloader** — Embedded Steam video page extraction via video URL patterns
 - **Generic Fallback** — 10 extraction strategies for ANY website (og:video, JSON-LD, video tags, CDN patterns, etc.)
 - **Social Media Authentication** — WebView-based Instagram and Facebook login for cookie-captured extraction
 - **Media Detection** — Automatically detects `<video>` and downloadable media links on web pages
@@ -60,12 +60,12 @@ An Android application for downloading videos and media from the web with a buil
 
 ## Installation
 
-### Latest Release — v1.1.0
+### Latest Release — v1.2.0
 
 | File | Size | SHA-256 |
 |------|------|---------|
-| [app-release.apk](https://github.com/abir2afridi/NexLoad/releases/latest/download/app-release.apk) | 15.13 MB | `CE23E9DBE52D6DE27076B0472C92A6ED289059DFDB51E7AD6D99A128D069694F` |
-| [app-release.aab](https://github.com/abir2afridi/NexLoad/releases/latest/download/app-release.aab) | 15.40 MB | `D0C014B13541EECC143D482F399E37D5754C0429923CDB39AC272B27673FE0E9` |
+| [app-release.apk](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.apk) | 15.13 MB | `A00730452B65196237FACE62C787F6249167EDD5FD7E055094E05FFE262532F6` |
+| [app-release.aab](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.aab) | 15.40 MB | `8478C45205F06C5A12E26076100B2F21E2B01F9EE4FA2926CB54B528CB633ECA` |
 
 ### Requirements
 - Android 7.0 (API 24) or higher
@@ -105,19 +105,36 @@ app/src/main/java/com/example/
 │   ├── components/                    # Reusable composables
 │   │   ├── TabHeader.kt               # Section header with category + title
 │   │   ├── DownloadHealthIndicators.kt # Integrity & connection health badges
-│   │   └── VideoPlayerDialog.kt       # Full-screen video player
+│   │   ├── DownloadDialog.kt          # Quality selection, thread count, privacy toggle
+│   │   ├── VideoPlayerDialog.kt       # Full-screen video player
+│   │   └── PatternLockView.kt         # Canvas-based PIN pattern lock for vault
 │   └── theme/                         # Colors, typography, theme system
 ├── data/
 │   ├── database/                      # Room entities, DAOs, database
-│   │   ├── Entities.kt                # DownloadEntity, BookmarkEntity
+│   │   ├── Entities.kt                # DownloadEntity, BookmarkEntity, HistoryEntity
 │   │   ├── DAOs.kt                    # DownloadDao, queries
 │   │   └── AppDatabase.kt             # Room database singleton
-│   └── download/                      # Download engine + utilities
-│       ├── VideoExtractor.kt          # Multi-platform video extraction (20+ platforms)
+│   └── download/                      # Download engine + extractors
 │       ├── DownloadEngine.kt          # Multi/single-thread download manager
-│       ├── TikTokCookieStore.kt       # Shared CookieJar for TikTok requests
 │       ├── MediaUtils.kt              # Formatting, filename parsing
-│       └── DownloadIntegrityWorker.kt # Periodic health checks via WorkManager
+│       ├── DownloadIntegrityWorker.kt # Periodic health checks via WorkManager
+│       ├── VideoExtractor.kt          # Multi-platform extraction router (20+ platforms)
+│       ├── YtDlpExtractor.kt          # yt-dlp wrapper (youtubedl-android)
+│       ├── GenericExtractor.kt        # 10-strategy fallback for any website
+│       ├── TikTokExtractor.kt         # TikWM API + 9 fallback strategies
+│       ├── TikTokCookieStore.kt       # Shared CookieJar for TikTok requests
+│       ├── InstagramExtractor.kt      # GraphQL POST → page HTML → JSON-LD
+│       ├── InstagramCookieStore.kt    # Instagram session cookie storage
+│       ├── FacebookExtractor.kt       # m.facebook → www → mbasic extraction
+│       ├── TwitterExtractor.kt        # og:video + player:stream + CDN
+│       ├── RedditExtractor.kt         # JSON API extraction
+│       ├── PinterestExtractor.kt      # 5-strategy extraction
+│       ├── SoundCloudExtractor.kt     # oEmbed + og:audio
+│       ├── VimeoExtractor.kt          # oEmbed extraction
+│       ├── TwitchExtractor.kt         # og:video + CDN
+│       ├── DailymotionExtractor.kt    # oEmbed extraction
+│       ├── TumblrExtractor.kt         # og:video + CDN
+│       └── SteamExtractor.kt          # Embedded Steam video page extraction
 ```
 
 ## Instagram Extraction — Detailed Process
@@ -155,6 +172,118 @@ X-FB-LSD: AVqbxe3J_YA
 - GraphQL requests extract `X-CSRFToken` from cookies automatically
 - Without cookies, public reels/posts still work — login improves reliability
 
+## Facebook Extraction — Detailed Process
+
+Facebook video extraction uses a 4-strategy pipeline in `FacebookExtractor.kt`:
+
+### Strategy 1: m.facebook.com (Primary)
+- Rewrites URL to `m.facebook.com` — mobile page has simplest HTML
+- Parses `<video>` tags with `hd_src`/`sd_src` attributes for direct CDN URLs
+- Also extracts from script data containing `playable_url` patterns
+- **Most reliable** — avoids Facebook's aggressive rate-limiting on desktop pages
+
+### Strategy 2: www.facebook.com (Desktop Fallback)
+- Desktop page HTML with JSON-LD VideoObject extraction
+- Script data patterns for `hd_src`/`sd_src` in embedded JSON
+- DASH manifest `BaseURL` extraction for modern Facebook video pages
+
+### Strategy 3: mbasic.facebook.com (Legacy Fallback)
+- Oldest/simplest HTML format with direct `<video>` tag `src` attributes
+- Used when both mobile and desktop pages fail
+
+### Strategy 4: oEmbed API (Last Resort)
+- Facebook's oEmbed endpoint (`https://www.facebook.com/plugins/video/oembed.json`)
+- Returns thumbnail URL and occasionally a direct video URL
+- Used as final fallback before giving up
+
+### URL Resolution
+- Facebook share URLs (`/share/r/xxx`) are resolved to actual video page URLs via HEAD/GET request with Android Chrome User-Agent
+
+### Why yt-dlp Is Not Used
+- yt-dlp (youtubedl-android) hangs indefinitely on Facebook URLs
+- When it does return, it frequently returns HTTP 403 Forbidden on CDN URLs
+- Custom extraction is faster and more reliable
+
+### Important Caveats
+- **User-Agent**: Uses `facebookexternalhit/1.1` in `BaseExtractor.fetchPageHtml()` for Facebook CDN — this is required to avoid 403 on `fbcdn.net` URLs
+- **Cookie Injection**: Facebook login cookies can be captured via WebView (`FacebookLoginActivity`) for access to private/restricted videos
+- **DASH vs MP4**: Modern Facebook serves separate audio+video DASH streams — the CDN URL may be a manifest, not a direct MP4
+- **Token Expiry**: CDN tokens (`oh=`, `oe=`, `_nc_sid=`) expire in ~30-60 minutes — download immediately after extraction
+
+## TikTok Extraction — Detailed Process
+
+TikTok video extraction uses a 10-strategy pipeline in `TikTokExtractor.kt`:
+
+### Strategy 1: TikWM API (Primary)
+```
+POST https://www.tikwm.com/api/
+Content-Type: application/x-www-form-urlencoded
+```
+- Sends `url=<tiktok-url>&hd=1` as form body
+- TikWM returns processed video data with direct CDN URLs
+- Falls back to GET `https://www.tikwm.com/api/?url=<encoded-url>&hd=1` if POST fails
+- Returns HD no-watermark video, watermarked video, and audio-only options
+
+### Strategy 2: SSSTik API (Secondary)
+- Alternative third-party API (ssstik.io) for direct video extraction
+- Used when TikWM API is unreachable or rate-limited
+
+### Strategy 3: Mobile API (TikTok Mobile Endpoint)
+- Extracts video `itemId` from the URL (or HTML)
+- Sends request to TikTok's internal mobile API endpoint
+- Returns JSON with video URLs, author info, and metadata
+
+### Strategy 4-9: HTML Parsing (Page-Based Fallbacks)
+When API strategies fail, the page HTML is fetched and parsed with 6 methods:
+1. **Universal Data** — Parses `<script id="__UNIVERSAL_DATA_FOR_VIEW_INITIAL_DATA__">`
+2. **Init Props** — Parses `<script id="__INITIAL_PROPS_INITIAL_STATE__">`
+3. **Sigi Data** — Parses `<script id="SIGI_STATE">` (client-side state)
+4. **CDN URL Pattern** — Regex search for direct TikTok CDN URLs in any script
+5. **Meta Tags** — `og:video`, `og:video:secure_url`, `twitter:player:stream`
+6. **JSON-LD VideoObject** — `<script type="application/ld+json">` parsing
+7. **Video Tags** — Any `<video>` tag `src` attributes in the page
+
+### Strategy 10: oEmbed API (Last Resort)
+- TikTok's oEmbed endpoint: `https://www.tiktok.com/oembed?url=<itemId>`
+- Returns metadata and thumbnail URL
+
+## Pinterest Extraction — Detailed Process
+
+Pinterest video extraction uses a 5-strategy pipeline in `PinterestExtractor.kt`:
+
+### Strategy 1: og:video Meta Tag (Simplest)
+- Checks `<meta property="og:video">` for direct video URL
+- Rare in modern Pinterest (2025+) but checked first for simplicity
+
+### Strategy 2: JSON-LD VideoObject (Reliable)
+- Parses `<script type="application/ld+json">` for VideoObject with `contentUrl`
+- Most reliable strategy — Pinterest includes this on video pins
+- Content URL format: `https://v1.pinimg.com/videos/.../720p.mp4`
+
+### Strategy 3: Relay Script Data (Most Complete)
+- Parses `__PWS_RELAY_REGISTER_COMPLETED_REQUEST__` scripts
+- Uses **brace-counting JSON parser** (`extractBalancedJson()`) — tracks `{` depth and string escaping to extract the complete nested JSON object
+- Old regex `[\s\S]*?\}` broke on deeply nested JSON (stopped at first `}`)
+- Video data located at: `storyPinData.pages[].blocks[].videoDataV2`
+  - `videoList720P.v720P.url` — MP4 (preferred)
+  - `videoListMobile.vHLSV3MOBILE.url` — m3u8 (fallback)
+
+### Strategy 4: contentUrl Regex (JSON Parser Bypass)
+- Direct regex: `"contentUrl"\s*:\s*"(https:\\/\\/v1\.pinimg\.com[^"]+\.mp4)"`
+- Bypasses JSON parser when JSON-LD has duplicate keys that cause parse failures
+
+### Strategy 5: Pinimg CDN URL Regex (Catch-All)
+- Searches entire HTML for any `v1.pinimg.com` URL ending in `.mp4`
+- Pinterest CDN has no authentication issues — always accessible
+
+### URL Resolution
+- `pin.it` short URLs (e.g., `https://pin.it/2ima6B8Wm`) are resolved to full `https://www.pinterest.com/pin/{id}/` URLs via redirect following
+
+### Why Other Approaches Failed
+- **Missing relay data**: Without browser `Sec-Fetch-*` and `Sec-Ch-Ua` headers, Pinterest returns empty JavaScript shell — no relay scripts
+- **Broken regex**: `[\s\S]*?\}` is non-greedy and stops at first `}`, yielding partial JSON that fails to parse — fixed with brace-counting
+- **Unresolved short URLs**: `resolveRedirect()` only handled TikTok short URLs — added `isShortPinterest` check
+
 ## Supported Platforms
 
 | Platform | Extraction Method |
@@ -170,6 +299,7 @@ X-FB-LSD: AVqbxe3J_YA
 | Twitch | og:video + CDN |
 | Dailymotion | oEmbed extraction |
 | Tumblr | og:video + CDN |
+| Steam | Embedded Steam video page extraction |
 | Any Website | 10-strategy generic fallback |
 
 ## Developer
@@ -179,6 +309,15 @@ X-FB-LSD: AVqbxe3J_YA
 - GitHub: [github.com/abir2afridi](https://github.com/abir2afridi)
 - Portfolio: [abir2afridi.vercel.app](https://abir2afridi.vercel.app/)
 - Computer Science · Independent University of Bangladesh
+
+## GitHub Community
+
+- [Contributing Guidelines](.github/CONTRIBUTING.md) — How to contribute, code style, PR process
+- [Code of Conduct](.github/CODE_OF_CONDUCT.md) — Community standards and enforcement
+- [Security Policy](.github/SECURITY.md) — Reporting vulnerabilities
+- [Support](.github/SUPPORT.md) — Where to get help
+- [Issue Templates](.github/ISSUE_TEMPLATE/) — Bug reports, feature requests, and more
+- [Pull Request Template](.github/PULL_REQUEST_TEMPLATE.md) — PR submission guidelines
 
 ## License
 

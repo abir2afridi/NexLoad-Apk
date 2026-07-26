@@ -1,0 +1,27 @@
+"area: frontend":
+  - changed-files:
+    - any-glob-to-any-file: ["app/src/main/java/com/example/ui/**"]
+
+"area: mobile":
+  - changed-files:
+    - any-glob-to-any-file: ["app/src/main/**"]
+
+"area: database":
+  - changed-files:
+    - any-glob-to-any-file: ["app/src/main/java/com/example/data/database/**"]
+
+"area: download":
+  - changed-files:
+    - any-glob-to-any-file: ["app/src/main/java/com/example/data/download/**"]
+
+"area: docs":
+  - changed-files:
+    - any-glob-to-any-file: ["docs/**", "*.md", "**/*.md"]
+
+"area: ci-cd":
+  - changed-files:
+    - any-glob-to-any-file: [".github/**", "gradle/**", "*.gradle.kts", "gradle.properties"]
+
+"area: tests":
+  - changed-files:
+    - any-glob-to-any-file: ["**/test/**", "**/androidTest/**"]
