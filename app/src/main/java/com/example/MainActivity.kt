@@ -2,6 +2,7 @@ package com.example
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -16,6 +17,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import android.content.res.Configuration
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.Crossfade
@@ -80,6 +82,16 @@ class MainActivity : FragmentActivity() {
                 Toast.makeText(this, "File access denied. App will use internal storage.", Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    override fun attachBaseContext(newBase: Context) {
+        val langPrefs = newBase.getSharedPreferences("app_settings", MODE_PRIVATE)
+        val lang = langPrefs.getString("app_language", "en") ?: "en"
+        val locale = java.util.Locale(lang)
+        java.util.Locale.setDefault(locale)
+        val config = Configuration(newBase.resources.configuration)
+        config.setLocale(locale)
+        super.attachBaseContext(newBase.createConfigurationContext(config))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -25,10 +26,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.app.Activity
 import com.example.ui.theme.*
+import com.example.ui.screens.languages
+import com.example.ui.screens.languageDisplayName
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -45,6 +50,7 @@ fun LookAndFeelScreen(
     val cornerRoundness by viewModel.cornerRoundness.collectAsState()
     val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
 
+    val selectedLanguage by viewModel.selectedLanguage.collectAsState()
     val navLabelVisibility by viewModel.navLabelVisibility.collectAsState()
     val isCompactLayout by viewModel.isCompactLayout.collectAsState()
     val isGlassmorphism by viewModel.isGlassmorphism.collectAsState()
@@ -62,6 +68,7 @@ fun LookAndFeelScreen(
     val surfaceTintIntensity by viewModel.surfaceTintIntensity.collectAsState()
 
     var showCustomColorPicker by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
     var showThemeModeDialog by remember { mutableStateOf(false) }
     var showNavLabelDialog by remember { mutableStateOf(false) }
     var showBrowserToggleDialog by remember { mutableStateOf(false) }
@@ -381,8 +388,8 @@ fun LookAndFeelScreen(
                     SettingDetailRow(
                         icon = Icons.Outlined.Language,
                         title = "Display language",
-                        subtitle = "English (United States)",
-                        onClick = { /* Language change */ }
+                        subtitle = languageDisplayName(selectedLanguage),
+                        onClick = { showLanguageDialog = true }
                     )
                 }
 
@@ -481,6 +488,19 @@ fun LookAndFeelScreen(
             currentIndex = dashboardBgStyle,
             onDismiss = { showDashBgStyleDialog = false },
             onConfirm = { viewModel.dashboardBgStyle.value = it }
+        )
+    }
+
+    if (showLanguageDialog) {
+        val context = LocalContext.current
+        LanguageDialog(
+            currentTag = selectedLanguage,
+            onDismiss = { showLanguageDialog = false },
+            onConfirm = { tag ->
+                viewModel.selectedLanguage.value = tag
+                showLanguageDialog = false
+                (context as? Activity)?.recreate()
+            }
         )
     }
 }
@@ -932,6 +952,41 @@ private fun AdvancedColorPicker(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
+    )
+}
+
+@Composable
+private fun LanguageDialog(
+    currentTag: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Display language") },
+        text = {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp),
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
+                items(languages) { lang ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onConfirm(lang.tag) }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(lang.name, style = MaterialTheme.typography.bodyMedium)
+                        if (lang.tag == currentTag) {
+                            Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 

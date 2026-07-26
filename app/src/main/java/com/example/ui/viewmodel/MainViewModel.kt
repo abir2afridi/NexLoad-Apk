@@ -149,6 +149,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val minuteColor = MutableStateFlow(settingsPrefs.getString("minute_color", "Default") ?: "Default")
     val secondColor = MutableStateFlow(settingsPrefs.getString("second_color", "Default") ?: "Default")
 
+    // ─── Language ─────────────────────────────────────────────────────────────
+    val selectedLanguage = MutableStateFlow(settingsPrefs.getString("app_language", "en") ?: "en")
+
     // ─── Browser Settings (Persisted in browser_settings) ───────────────────
 
     // Privacy & Blocking
@@ -316,6 +319,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persistFlow(hourColor)            { putString("hour_color", it) }
         persistFlow(minuteColor)          { putString("minute_color", it) }
         persistFlow(secondColor)          { putString("second_color", it) }
+
+        // Persist language
+        persistFlow(selectedLanguage)     { putString("app_language", it) }
 
         // Persist browser_settings on change
         persistBrowserFlow(isAdBlocking)            { putBoolean("ad_blocking", it) }
