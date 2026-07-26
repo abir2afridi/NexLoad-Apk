@@ -19,3 +19,4 @@ debug.keystore
 .history/
 docs/
 ABS/
+.artifacts/

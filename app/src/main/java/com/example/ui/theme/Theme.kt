@@ -64,80 +64,60 @@ private val BentoDarkColorScheme = darkColorScheme(
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     isAmoled: Boolean = false,
-    accentColor: String = "Bento", // "Bento", "Teal", "Blue", "Orange" or Hex like "#FF0000"
-    dynamicColor: Boolean = false, // Set to false to prioritize our gorgeous branding
+    accentColor: String = "Bento",
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val baseScheme = when {
+    val context = LocalContext.current
+    val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        accentColor == "Bento" -> {
-            if (darkTheme) {
-                if (isAmoled) darkColorScheme(
-                    primary = BentoPrimary,
-                    secondary = BentoContainer,
-                    tertiary = BentoLightBlue,
-                    background = PureBlack,
-                    surface = PureBlack,
-                    onBackground = Color.White,
-                    onSurface = Color.White,
-                    primaryContainer = BentoPrimary,
-                    onPrimaryContainer = Color.White,
-                    surfaceVariant = Color(0xFF282B2E),
-                    outline = Color(0xFF3A3E42)
-                ) else BentoDarkColorScheme
-            } else BentoLightColorScheme
-        }
         darkTheme -> {
-            // Apply Custom Dark Accent Color
-            val primaryColor = when (accentColor) {
-                "Blue" -> BlueAccent
-                "Orange" -> OrangeAccent
-                "Teal" -> TealAccent
+            val base = when (accentColor) {
+                "Bento" -> BentoDarkColorScheme
+                "Teal" -> darkColorScheme(primary = TealAccent)
+                "Blue" -> darkColorScheme(primary = BlueAccent)
+                "Orange" -> darkColorScheme(primary = OrangeAccent)
+                "Green" -> darkColorScheme(primary = GreenAccent)
+                "Red" -> darkColorScheme(primary = RedAccent)
+                "Purple" -> darkColorScheme(primary = PurpleAccent)
+                "Pink" -> darkColorScheme(primary = PinkAccent)
+                "Indigo" -> darkColorScheme(primary = IndigoAccent)
                 else -> {
                     try {
-                        Color(android.graphics.Color.parseColor(accentColor))
+                        darkColorScheme(primary = Color(android.graphics.Color.parseColor(accentColor)))
                     } catch (e: Exception) {
-                        TealAccent
+                        DarkColorScheme
                     }
                 }
             }
-            darkColorScheme(
-                primary = primaryColor,
-                background = if (isAmoled) PureBlack else SlateDark,
-                surface = if (isAmoled) PureBlack else CardDark,
-                onBackground = Color.White,
-                onSurface = Color.White
-            )
+            if (isAmoled) base.copy(background = PureBlack, surface = PureBlack) else base
         }
         else -> {
-            // Apply Custom Light Accent Color
-            val primaryColor = when (accentColor) {
-                "Blue" -> BluePrimary
-                "Orange" -> OrangePrimary
-                "Teal" -> TealPrimary
+            when (accentColor) {
+                "Bento" -> BentoLightColorScheme
+                "Teal" -> lightColorScheme(primary = TealPrimary)
+                "Blue" -> lightColorScheme(primary = BluePrimary)
+                "Orange" -> lightColorScheme(primary = OrangePrimary)
+                "Green" -> lightColorScheme(primary = GreenPrimary)
+                "Red" -> lightColorScheme(primary = RedPrimary)
+                "Purple" -> lightColorScheme(primary = PurplePrimary)
+                "Pink" -> lightColorScheme(primary = PinkPrimary)
+                "Indigo" -> lightColorScheme(primary = IndigoPrimary)
                 else -> {
                     try {
-                        Color(android.graphics.Color.parseColor(accentColor))
+                        lightColorScheme(primary = Color(android.graphics.Color.parseColor(accentColor)))
                     } catch (e: Exception) {
-                        TealPrimary
+                        LightColorScheme
                     }
                 }
             }
-            lightColorScheme(
-                primary = primaryColor,
-                background = Color.White,
-                surface = LightGray,
-                onBackground = Color.Black,
-                onSurface = Color.Black
-            )
         }
     }
 
     MaterialTheme(
-        colorScheme = baseScheme,
+        colorScheme = colorScheme,
         typography = Typography,
         content = content
     )

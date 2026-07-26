@@ -109,6 +109,7 @@ class MainActivity : FragmentActivity() {
             val isAmoledMode by viewModel.isAmoledMode.collectAsState()
             val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
             val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
+            val isDynamicColor by viewModel.isDynamicColor.collectAsState()
             val browserTogglePosition by viewModel.browserTogglePosition.collectAsState()
 
             val darkTheme = when (selectedThemeMode) {
@@ -120,7 +121,8 @@ class MainActivity : FragmentActivity() {
             MyApplicationTheme(
                 darkTheme = darkTheme,
                 isAmoled = isAmoledMode,
-                accentColor = selectedAccentColor
+                accentColor = selectedAccentColor,
+                dynamicColor = isDynamicColor
             ) {
                 Crossfade(targetState = showLoadingScreen, label = "splash_transition") { loading ->
                     if (loading) {

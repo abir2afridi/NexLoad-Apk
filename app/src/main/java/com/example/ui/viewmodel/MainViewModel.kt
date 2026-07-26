@@ -86,6 +86,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isHttpsOnly = MutableStateFlow(settingsPrefs.getBoolean("https_only", true))
     val isWifiOnly = MutableStateFlow(settingsPrefs.getBoolean("wifi_only", false))
     val isAmoledMode = MutableStateFlow(settingsPrefs.getBoolean("amoled_mode", false))
+    val isDynamicColor = MutableStateFlow(settingsPrefs.getBoolean("dynamic_color", true))
     val maxActiveDownloads = MutableStateFlow(settingsPrefs.getInt("max_downloads", 3))
     val selectedAccentColor = MutableStateFlow(settingsPrefs.getString("accent_color", "Bento") ?: "Bento")
     val selectedThemeMode = MutableStateFlow(settingsPrefs.getString("theme_mode", "System") ?: "System")
@@ -244,6 +245,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persistFlow(isHttpsOnly)          { putBoolean("https_only", it) }
         persistFlow(isWifiOnly)           { putBoolean("wifi_only", it) }
         persistFlow(isAmoledMode)         { putBoolean("amoled_mode", it) }
+        persistFlow(isDynamicColor)       { putBoolean("dynamic_color", it) }
         persistFlow(maxActiveDownloads)   { putInt("max_downloads", it) }
         persistFlow(selectedAccentColor)  { putString("accent_color", it) }
         persistFlow(selectedThemeMode)    { putString("theme_mode", it) }

@@ -23,6 +23,27 @@ val OrangePrimary = Color(0xFFFF9800)
 val OrangeDark = Color(0xFFE65100)
 val OrangeAccent = Color(0xFFFF6D00)
 
+// Additional Accent Colors for Variety
+val GreenPrimary = Color(0xFF43A047)
+val GreenAccent = Color(0xFF66BB6A)
+val GreenContainer = Color(0xFFC8E6C9)
+
+val RedPrimary = Color(0xFFE53935)
+val RedAccent = Color(0xFFEF5350)
+val RedContainer = Color(0xFFFFCDD2)
+
+val PurplePrimary = Color(0xFF8E24AA)
+val PurpleAccent = Color(0xFFAB47BC)
+val PurpleContainer = Color(0xFFE1BEE7)
+
+val PinkPrimary = Color(0xFFD81B60)
+val PinkAccent = Color(0xFFEC407A)
+val PinkContainer = Color(0xFFF8BBD0)
+
+val IndigoPrimary = Color(0xFF3949AB)
+val IndigoAccent = Color(0xFF5C6BC0)
+val IndigoContainer = Color(0xFFC5CAE9)
+
 // Bento Grid Color Palette
 val BentoBg = Color(0xFFF7F9FC)
 val BentoText = Color(0xFF191C1E)
