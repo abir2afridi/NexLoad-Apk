@@ -44,6 +44,47 @@ val IndigoPrimary = Color(0xFF3949AB)
 val IndigoAccent = Color(0xFF5C6BC0)
 val IndigoContainer = Color(0xFFC5CAE9)
 
+// Extended Material 3 Palette
+val CyanPrimary = Color(0xFF00ACC1)
+val CyanAccent = Color(0xFF00BCD4)
+val CyanContainer = Color(0xFFB2EBF2)
+
+val AmberPrimary = Color(0xFFFFB300)
+val AmberAccent = Color(0xFFFFC107)
+val AmberContainer = Color(0xFFFFECB3)
+
+val LimePrimary = Color(0xFFC0CA33)
+val LimeAccent = Color(0xFFCDDC39)
+val LimeContainer = Color(0xFFF0F4C3)
+
+val DeepOrangePrimary = Color(0xFFF4511E)
+val DeepOrangeAccent = Color(0xFFFF5722)
+val DeepOrangeContainer = Color(0xFFFFCCBC)
+
+val BrownPrimary = Color(0xFF6D4C41)
+val BrownAccent = Color(0xFF795548)
+val BrownContainer = Color(0xFFD7CCC8)
+
+val GreyPrimary = Color(0xFF757575)
+val GreyAccent = Color(0xFF9E9E9E)
+val GreyContainer = Color(0xFFF5F5F5)
+
+val BlueGreyPrimary = Color(0xFF546E7A)
+val BlueGreyAccent = Color(0xFF607D8B)
+val BlueGreyContainer = Color(0xFFCFD8DC)
+
+val DeepPurplePrimary = Color(0xFF5E35B1)
+val DeepPurpleAccent = Color(0xFF673AB7)
+val DeepPurpleContainer = Color(0xFFD1C4E9)
+
+val LightBluePrimary = Color(0xFF039BE5)
+val LightBlueAccent = Color(0xFF03A9F4)
+val LightBlueContainer = Color(0xFFB3E5FC)
+
+val LightGreenPrimary = Color(0xFF7CB342)
+val LightGreenAccent = Color(0xFF8BC34A)
+val LightGreenContainer = Color(0xFFDCEDC8)
+
 // Bento Grid Color Palette
 val BentoBg = Color(0xFFF7F9FC)
 val BentoText = Color(0xFF191C1E)

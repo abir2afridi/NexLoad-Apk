@@ -38,7 +38,12 @@ fun LookAndFeelScreen(
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
     val isAmoledMode by viewModel.isAmoledMode.collectAsState()
     val isDynamicColor by viewModel.isDynamicColor.collectAsState()
+    val isMonochrome by viewModel.isMonochrome.collectAsState()
+    val fontScale by viewModel.fontScale.collectAsState()
+    val cornerRoundness by viewModel.cornerRoundness.collectAsState()
     val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
+
+    var showCustomColorPicker by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -64,7 +69,7 @@ fun LookAndFeelScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 // Preview Section
                 PreviewCard()
@@ -72,10 +77,12 @@ fun LookAndFeelScreen(
                 // Theme Schemes Section
                 ThemeSchemePicker(
                     selectedScheme = selectedAccentColor,
-                    onSchemeSelected = { viewModel.selectedAccentColor.value = it }
+                    onSchemeSelected = { viewModel.selectedAccentColor.value = it },
+                    onAddCustom = { showCustomColorPicker = true }
                 )
 
-                // Settings Rows
+                // Settings Section: Theme & Display
+                SectionHeader("Theme & Display")
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -83,7 +90,7 @@ fun LookAndFeelScreen(
                     SettingSwitchRow(
                         icon = Icons.Outlined.Palette,
                         title = "Dynamic color",
-                        subtitle = "Apply colors from wallpapers to the app theme",
+                        subtitle = "Use colors from your wallpaper",
                         checked = isDynamicColor,
                         onCheckedChange = { viewModel.isDynamicColor.value = it }
                     )
@@ -91,7 +98,7 @@ fun LookAndFeelScreen(
                     SettingSwitchRow(
                         icon = Icons.Outlined.DarkMode,
                         title = "Dark theme",
-                        subtitle = if (selectedThemeMode == "Dark") "On" else "Off",
+                        subtitle = if (selectedThemeMode == "Dark") "Enabled" else "Disabled",
                         checked = selectedThemeMode == "Dark",
                         onCheckedChange = { 
                             viewModel.selectedThemeMode.value = if (it) "Dark" else "Light" 
@@ -99,44 +106,122 @@ fun LookAndFeelScreen(
                     )
 
                     SettingSwitchRow(
+                        icon = Icons.Outlined.Contrast,
+                        title = "Monochrome mode",
+                        subtitle = "High contrast black and white theme",
+                        checked = isMonochrome,
+                        onCheckedChange = { viewModel.isMonochrome.value = it }
+                    )
+
+                    SettingSwitchRow(
                         icon = Icons.Outlined.BrightnessMedium,
-                        title = "AMOLED Black Mode",
-                        subtitle = "Pure black background for OLED screens",
+                        title = "AMOLED Black",
+                        subtitle = "Perfect blacks for OLED screens",
                         checked = isAmoledMode,
                         onCheckedChange = { viewModel.isAmoledMode.value = it }
                     )
+                }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { /* Language change logic */ }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Language,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Display language",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = "English (United States)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                // Settings Section: UI Refinement
+                SectionHeader("UI Refinement")
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    SliderSetting(
+                        icon = Icons.Outlined.TextFields,
+                        title = "Font Scale",
+                        value = fontScale,
+                        onValueChange = { viewModel.fontScale.value = it },
+                        valueRange = 0.8f..1.3f,
+                        steps = 5,
+                        displayValue = "${(fontScale * 100).toInt()}%"
+                    )
+
+                    SliderSetting(
+                        icon = Icons.Outlined.RoundedCorner,
+                        title = "Corner Roundness",
+                        value = cornerRoundness,
+                        onValueChange = { viewModel.cornerRoundness.value = it },
+                        valueRange = 0f..2f,
+                        steps = 8,
+                        displayValue = "${(cornerRoundness * 100).toInt()}%"
+                    )
+                }
+
+                // Miscellaneous
+                SectionHeader("Miscellaneous")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .clickable { /* Language change */ }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Icon(Icons.Outlined.Language, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Display language", style = MaterialTheme.typography.bodyLarge)
+                        Text("English (United States)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
     )
+
+    if (showCustomColorPicker) {
+        CustomColorDialog(
+            onDismiss = { showCustomColorPicker = false },
+            onColorSelected = { hex ->
+                viewModel.selectedAccentColor.value = hex
+                showCustomColorPicker = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+    )
+}
+
+@Composable
+fun SliderSetting(
+    icon: ImageVector,
+    title: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    displayValue: String
+) {
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(displayValue, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            steps = steps,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+    }
 }
 
 @Composable
@@ -145,7 +230,7 @@ fun PreviewCard() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
@@ -154,8 +239,8 @@ fun PreviewCard() {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
-                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .height(180.dp)
+                    .clip(MaterialTheme.shapes.large)
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
@@ -166,24 +251,16 @@ fun PreviewCard() {
                     ),
                 contentAlignment = Alignment.BottomEnd
             ) {
-                // Mock Artwork/Design
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayCircleFilled,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.PlayCircleFilled,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp).align(Alignment.Center),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
 
                 Surface(
                     modifier = Modifier.padding(12.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = MaterialTheme.shapes.small,
                     color = Color.Black.copy(alpha = 0.6f)
                 ) {
                     Text(
@@ -196,16 +273,8 @@ fun PreviewCard() {
             }
 
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Video title sample text",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Video creator sample text",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Video title sample text", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Video creator sample text", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
@@ -231,7 +300,8 @@ data class ThemeScheme(
 @Composable
 fun ThemeSchemePicker(
     selectedScheme: String,
-    onSchemeSelected: (String) -> Unit
+    onSchemeSelected: (String) -> Unit,
+    onAddCustom: () -> Unit
 ) {
     val schemes = listOf(
         ThemeScheme("Bento", BentoPrimary, BentoContainer, Color(0xFF535F70), Color(0xFFD7E3F7)),
@@ -242,14 +312,24 @@ fun ThemeSchemePicker(
         ThemeScheme("Red", RedPrimary, RedContainer, Color(0xFFD32F2F), Color(0xFFFFEBEE)),
         ThemeScheme("Purple", PurplePrimary, PurpleContainer, Color(0xFF7B1FA2), Color(0xFFF3E5F5)),
         ThemeScheme("Indigo", IndigoPrimary, IndigoContainer, Color(0xFF303F9F), Color(0xFFE8EAF6)),
+        ThemeScheme("Cyan", CyanPrimary, CyanContainer, Color(0xFF0097A7), Color(0xFFE0F7FA)),
+        ThemeScheme("Amber", AmberPrimary, AmberContainer, Color(0xFFFFA000), Color(0xFFFFF8E1)),
+        ThemeScheme("Lime", LimePrimary, LimeContainer, Color(0xFFAFB42B), Color(0xFFF9FBE7)),
+        ThemeScheme("Deep Orange", DeepOrangePrimary, DeepOrangeContainer, Color(0xFFE64A19), Color(0xFFFBE9E7)),
+        ThemeScheme("Brown", BrownPrimary, BrownContainer, Color(0xFF5D4037), Color(0xFFEFEBE9)),
+        ThemeScheme("Deep Purple", DeepPurplePrimary, DeepPurpleContainer, Color(0xFF512DA8), Color(0xFFEDE7F6)),
+        ThemeScheme("Light Blue", LightBluePrimary, LightBlueContainer, Color(0xFF0288D1), Color(0xFFE1F5FE)),
+        ThemeScheme("Light Green", LightGreenPrimary, LightGreenContainer, Color(0xFF689F38), Color(0xFFF1F8E9)),
     )
+
+    val listState = rememberLazyListState()
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            state = rememberLazyListState()
+            state = listState
         ) {
             items(schemes) { scheme ->
                 ThemeSchemeItem(
@@ -258,26 +338,23 @@ fun ThemeSchemePicker(
                     onClick = { onSchemeSelected(scheme.name) }
                 )
             }
-        }
-
-        // Dots Indicator
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            repeat(schemes.size) { index ->
-                val isSelected = schemes[index].name == selectedScheme
-                val width by animateDpAsState(if (isSelected) 12.dp else 6.dp, label = "")
-                val alpha by animateFloatAsState(if (isSelected) 1f else 0.3f, label = "")
-                
-                Box(
+            
+            // Custom Color Add Item
+            item {
+                Card(
                     modifier = Modifier
-                        .padding(horizontal = 3.dp)
-                        .size(width = width, height = 6.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
-                )
+                        .size(80.dp)
+                        .clickable(onClick = onAddCustom),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(Icons.Default.Add, "Custom Color", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
     }
@@ -304,57 +381,63 @@ fun ThemeSchemeItem(
         border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            // Quadrant Circle
             Canvas(modifier = Modifier.size(48.dp)) {
-                // Top Left: Primary
-                drawArc(
-                    color = scheme.primary,
-                    startAngle = 180f,
-                    sweepAngle = 90f,
-                    useCenter = true
-                )
-                // Top Right: Primary Container
-                drawArc(
-                    color = scheme.primaryContainer,
-                    startAngle = 270f,
-                    sweepAngle = 90f,
-                    useCenter = true
-                )
-                // Bottom Right: Secondary Container
-                drawArc(
-                    color = scheme.secondaryContainer,
-                    startAngle = 0f,
-                    sweepAngle = 90f,
-                    useCenter = true
-                )
-                // Bottom Left: Secondary
-                drawArc(
-                    color = scheme.secondary,
-                    startAngle = 90f,
-                    sweepAngle = 90f,
-                    useCenter = true
-                )
+                drawArc(color = scheme.primary, startAngle = 180f, sweepAngle = 90f, useCenter = true)
+                drawArc(color = scheme.primaryContainer, startAngle = 270f, sweepAngle = 90f, useCenter = true)
+                drawArc(color = scheme.secondaryContainer, startAngle = 0f, sweepAngle = 90f, useCenter = true)
+                drawArc(color = scheme.secondary, startAngle = 90f, sweepAngle = 90f, useCenter = true)
             }
 
             if (isSelected) {
                 Surface(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .align(Alignment.Center),
+                    modifier = Modifier.size(24.dp).align(Alignment.Center),
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary,
                     tonalElevation = 4.dp
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        modifier = Modifier.padding(4.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
+                    Icon(Icons.Default.Check, null, modifier = Modifier.padding(4.dp), tint = MaterialTheme.colorScheme.onPrimary)
                 }
             }
         }
     }
+}
+
+@Composable
+fun CustomColorDialog(
+    onDismiss: () -> Unit,
+    onColorSelected: (String) -> Unit
+) {
+    var hexInput by remember { mutableStateOf("#") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Custom Color") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Enter a hex color code to generate a custom theme.")
+                OutlinedTextField(
+                    value = hexInput,
+                    onValueChange = { if (it.length <= 7) hexInput = it.uppercase() },
+                    label = { Text("Hex Code") },
+                    placeholder = { Text("#000000") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (hexInput.length == 7) onColorSelected(hexInput) },
+                enabled = hexInput.length == 7
+            ) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
@@ -379,19 +462,9 @@ fun SettingSwitchRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange
-        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

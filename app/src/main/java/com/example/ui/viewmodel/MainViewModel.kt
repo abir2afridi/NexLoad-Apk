@@ -87,6 +87,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isWifiOnly = MutableStateFlow(settingsPrefs.getBoolean("wifi_only", false))
     val isAmoledMode = MutableStateFlow(settingsPrefs.getBoolean("amoled_mode", false))
     val isDynamicColor = MutableStateFlow(settingsPrefs.getBoolean("dynamic_color", true))
+    val isMonochrome = MutableStateFlow(settingsPrefs.getBoolean("monochrome", false))
+    val fontScale = MutableStateFlow(settingsPrefs.getFloat("font_scale", 1.0f))
+    val cornerRoundness = MutableStateFlow(settingsPrefs.getFloat("corner_roundness", 1.0f))
     val maxActiveDownloads = MutableStateFlow(settingsPrefs.getInt("max_downloads", 3))
     val selectedAccentColor = MutableStateFlow(settingsPrefs.getString("accent_color", "Bento") ?: "Bento")
     val selectedThemeMode = MutableStateFlow(settingsPrefs.getString("theme_mode", "System") ?: "System")
@@ -246,6 +249,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persistFlow(isWifiOnly)           { putBoolean("wifi_only", it) }
         persistFlow(isAmoledMode)         { putBoolean("amoled_mode", it) }
         persistFlow(isDynamicColor)       { putBoolean("dynamic_color", it) }
+        persistFlow(isMonochrome)         { putBoolean("monochrome", it) }
+        persistFlow(fontScale)            { putFloat("font_scale", it) }
+        persistFlow(cornerRoundness)       { putFloat("corner_roundness", it) }
         persistFlow(maxActiveDownloads)   { putInt("max_downloads", it) }
         persistFlow(selectedAccentColor)  { putString("accent_color", it) }
         persistFlow(selectedThemeMode)    { putString("theme_mode", it) }
