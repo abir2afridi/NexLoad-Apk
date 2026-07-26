@@ -6,6 +6,43 @@ import okhttp3.FormBody
 import okhttp3.Request
 import java.util.regex.Pattern
 
+// =========================================================================
+// INSTAGRAM EXTRACTION — DO NOT DELETE OR MODIFY THESE COMMENTS
+// =========================================================================
+// PROBLEM (July 2026):
+// The old implementation used an outdated GraphQL query_hash GET approach
+// (hash: 4777bf1659f3c198a0be3bb630125cce) — Instagram deprecated this.
+// Instagram now requires a POST request with doc_id + FormBody payload and
+// specific headers (X-IG-App-ID, X-CSRFToken, X-FB-LSD, etc.).
+//
+// Additionally, the old code relied on __shareConfig and __additionalData
+// script tags that Instagram removed from their pages. These patterns
+// no longer exist in Instagram's HTML.
+//
+// Generic headers also failed — Instagram returns empty/minimal HTML
+// without the og:video meta tag unless you send proper browser headers.
+//
+// SOLUTION (inspired by working open-source repos like
+// Okramjimmy/Instagram-reels-downloader):
+// Strategy 1 — GraphQL POST: Send a form-encoded POST to
+//   /graphql/query with doc_id=10015901848480474, variables (shortcode),
+//   X-IG-App-ID=1217981644879628, X-CSRFToken, X-FB-LSD.
+//   The response contains xdt_shortcode_media.video_url — the direct
+//   CDN video URL.
+//
+// Strategy 2 — Page HTML with browser headers: Fetch the page with
+//   Firefox desktop UA + Instagram-specific headers so Instagram
+//   returns full server-rendered HTML with og:video meta tag.
+//
+// Strategy 3 — JSON-LD: Parse VideoObject from JSON-LD script tags.
+//
+// RULES:
+// - NEVER replace the POST approach with a GET query_hash approach
+// - NEVER remove X-IG-App-ID header — Instagram requires it
+// - NEVER remove X-CSRFToken or X-FB-LSD — required for GraphQL
+// - NEVER delete or simplify these comments — they explain the fix
+// =========================================================================
+
 internal fun extractInstagram(url: String): TikTokVideoData? {
     val resolved = resolveRedirect(url) ?: url
     val shortcode = extractInstagramShortcode(resolved) ?: return null
@@ -24,6 +61,21 @@ internal fun extractInstagram(url: String): TikTokVideoData? {
     return null
 }
 
+// =========================================================================
+// DO NOT DELETE — Dedicated page fetcher for Instagram
+// =========================================================================
+// PROBLEM: Generic fetchPageHtml() with default headers returns empty
+// HTML from Instagram. Instagram requires specific browser headers to
+// return server-rendered content with og:video meta tags.
+//
+// This function sends Firefox desktop headers + Instagram-specific
+// Sec-Fetch headers so the page includes video metadata.
+//
+// RULES:
+// - NEVER remove Sec-Fetch-* headers — Instagram checks them
+// - NEVER downgrade the User-Agent to generic OkHttp — use Firefox desktop
+// - NEVER merge this into generic fetchPageHtml() — Instagram is special
+// =========================================================================
 internal fun fetchInstagramPageHtml(url: String): String? {
     return try {
         val request = Request.Builder().url(url)
@@ -77,6 +129,36 @@ internal fun extractInstagramShortcode(url: String): String? {
     return null
 }
 
+// =========================================================================
+// DO NOT DELETE — Instagram GraphQL POST extraction (v2)
+// =========================================================================
+// PROBLEM: The old extractFromInstagramGraphql() used a GET request with
+// query_hash parameter. Instagram deprecated this endpoint. Now Instagram
+// requires a POST request with a specific doc_id and FormBody payload.
+//
+// HOW THIS WORKS:
+// 1. POST to https://www.instagram.com/graphql/query
+// 2. Content-Type: application/x-www-form-urlencoded
+// 3. Headers include X-IG-App-ID (1217981644879628), X-CSRFToken, X-FB-LSD
+// 4. Body includes doc_id=10015901848480474 + variables (shortcode JSON)
+// 5. Response contains data.xdt_shortcode_media.video_url (direct CDN URL)
+//
+// The doc_id (10015901848480474) maps to the "PolarisPostActionLoadPostQuery"
+// GraphQL query. Instagram may change this doc_id over time — if extraction
+// stops working, the doc_id likely needs updating.
+//
+// SOURCE: This approach matches the working open-source project
+// Okramjimmy/Instagram-reels-downloader (Next.js TypeScript) which uses
+// the exact same doc_id, headers, and form body structure.
+//
+// RULES:
+// - NEVER replace with GET query_hash — Instagram no longer supports it
+// - NEVER remove X-IG-App-ID header (1217981644879628) — required
+// - NEVER remove X-CSRFToken or X-FB-LSD — Instagram blocks without them
+// - NEVER change Content-Type from x-www-form-urlencoded — Instagram expects it
+// - If doc_id stops working, find the new one from Instagram's web JS bundle
+// - If xdt_shortcode_media field stops working, check response for renamed field
+// =========================================================================
 private fun extractFromInstagramGraphqlV2(shortcode: String): TikTokVideoData? {
     try {
         val csrfToken = InstagramCookieStore.getCookies()

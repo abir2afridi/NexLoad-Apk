@@ -27,9 +27,10 @@ An Android application for downloading videos and media from the web with a buil
 - **Analyze-First UX** — Paste any link on the dashboard, tap Analyze, see platform info + quality options, then download
 - **Multi-Platform Video Downloader** — Supports TikTok, Instagram, Facebook, Twitter/X, Reddit, Pinterest, SoundCloud, Vimeo, Twitch, Dailymotion, Tumblr, and ANY website via generic fallback extraction
 - **TikTok Downloader** — TikWM API + 9 fallback strategies for HD no-watermark, watermarked, and audio-only downloads
-- **Instagram Downloader** — 4-strategy chain: third-party API (primary), embed /captioned/, GraphQL with session warmup, regular embed
+- **Instagram Downloader** — 3-strategy chain: GraphQL POST API (doc_id + X-IG-App-ID, primary), page HTML with Firefox desktop headers (og:video fallback), JSON-LD VideoObject (tertiary)
 - **Facebook Downloader** — 3-strategy custom extraction (m.facebook.com → www → mbasic), no yt-dlp dependency, User-Agent: facebookexternalhit/1.1 for CDN, cookie injection, share URL resolution
 - **Pinterest Downloader** — 5-strategy extraction: og:video, JSON-LD VideoObject, relay script data with brace-counting JSON parser, contentUrl regex, pinimg CDN URL; pin.it short URL resolution; browser headers for server-side rendering
+- **Instagram Downloader** — 3-strategy extraction with dedicated page fetcher (Firefox desktop headers): GraphQL POST (doc_id + X-IG-App-ID) → page og:video meta → JSON-LD VideoObject; cookie-authenticated session via InstagramLoginActivity WebView
 - **Twitter/X Downloader** — og:video, twitter:player:stream, and CDN URL extraction
 - **Generic Fallback** — 10 extraction strategies for ANY website (og:video, JSON-LD, video tags, CDN patterns, etc.)
 - **Social Media Authentication** — WebView-based Instagram and Facebook login for cookie-captured extraction
@@ -119,12 +120,47 @@ app/src/main/java/com/example/
 │       └── DownloadIntegrityWorker.kt # Periodic health checks via WorkManager
 ```
 
+## Instagram Extraction — Detailed Process
+
+Instagram video extraction uses a 3-strategy pipeline in `InstagramExtractor.kt`:
+
+### Strategy 1: GraphQL POST API (Primary)
+```
+POST https://www.instagram.com/graphql/query
+Content-Type: application/x-www-form-urlencoded
+X-IG-App-ID: 1217981644879628
+X-CSRFToken: <from cookie>
+X-FB-LSD: AVqbxe3J_YA
+```
+- Sends `doc_id=10015901848480474` + `variables` (shortcode JSON) in form body
+- Response contains `data.xdt_shortcode_media.video_url` — the direct CDN video URL
+- This is the SAME approach used by working open-source repos (Okramjimmy/Instagram-reels-downloader)
+
+### Strategy 2: Page HTML with Browser Headers (Fallback)
+- Fetches page HTML with Firefox desktop User-Agent + Instagram-specific Sec-Fetch headers
+- Instagram returns server-rendered HTML with `<meta property="og:video">` containing the direct CDN URL
+- Without these specific headers, Instagram returns empty JS-rendered shell
+
+### Strategy 3: JSON-LD VideoObject (Tertiary)
+- Parses `<script type="application/ld+json">` for VideoObject with `contentUrl`
+
+### Why the Old Approach Failed
+- **Old GraphQL**: Used GET with `query_hash=4777bf1659f3c198a0be3bb630125cce` — Instagram deprecated this
+- **__additionalData / __shareConfig**: These JavaScript variables no longer exist in Instagram's HTML
+- **Generic headers**: Returned empty HTML without video data
+
+### Cookie Authentication
+- Users can log in via WebView (`InstagramLoginActivity`) to capture session cookies
+- Cookies are stored in `InstagramCookieStore` (SharedPreferences)
+- GraphQL requests extract `X-CSRFToken` from cookies automatically
+- Without cookies, public reels/posts still work — login improves reliability
+
 ## Supported Platforms
 
 | Platform | Extraction Method |
 |----------|------------------|
 | TikTok | TikWM API + 9 fallback strategies |
-| Instagram | Third-party API + embed + GraphQL |
+| Instagram | GraphQL POST (doc_id + X-IG-App-ID) → page og:video → JSON-LD VideoObject |
 | Facebook | m.facebook.com (primary) → www → mbasic, facebookexternalhit/1.1 UA, cookie injection |
 | Twitter/X | og:video + twitter:player:stream + CDN |
 | Reddit | JSON API extraction |

@@ -198,6 +198,24 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
         val requestBuilder = Request.Builder().url(url)
         val isFacebook = url.contains("facebook.com") || url.contains("fb.watch") || url.contains("fb.com")
         val isPinterest = url.contains("pinterest.com") || url.contains("pin.it")
+        // =========================================================================
+        // INSTAGRAM HEADERS — DO NOT REMOVE
+        // =========================================================================
+        // PROBLEM: Instagram detects bare OkHttp requests and returns empty
+        // JavaScript-rendered HTML WITHOUT the og:video meta tag or any video data.
+        //
+        // Without these Firefox desktop headers, extractInstagramFromMetaTags()
+        // and extractFromInstagramJsonLd() get empty HTML → no video found.
+        //
+        // SOLUTION: Send full Firefox browser headers so Instagram returns the
+        // server-side rendered HTML with embedded video meta tags.
+        //
+        // RULES:
+        // - NEVER remove Sec-Fetch-* headers — Instagram checks them
+        // - NEVER remove DNT header — Instagram expects it
+        // - Use desktop Firefox UA (not mobile, not generic OkHttp)
+        // - Cookie injection helps when user has logged in via InstagramLoginActivity
+        // =========================================================================
         val isInstagram = url.contains("instagram.com") || url.contains("instagr.am")
         if (isInstagram) {
             requestBuilder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/117.0")
@@ -273,6 +291,19 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
                     Log.d(EXTRACTOR_TAG, "Saved ${cookies.size} Facebook cookies")
                 }
             }
+            // =========================================================================
+            // INSTAGRAM COOKIE SAVING — DO NOT REMOVE
+            // =========================================================================
+            // Saves Set-Cookie headers from Instagram responses into InstagramCookieStore.
+            // This maintains session continuity across requests — critical for:
+            // 1. GraphQL POST API (X-CSRFToken is extracted from cookies)
+            // 2. Page HTML fetching with authenticated session
+            // 3. Future requests benefit from accumulated cookies
+            //
+            // RULES:
+            // - NEVER remove this block — cookies are essential for Instagram extraction
+            // - Always merge with existing cookies (don't replace)
+            // =========================================================================
             if (isInstagram) {
                 val cookies = resp.headers("Set-Cookie")
                 if (cookies.isNotEmpty()) {
