@@ -6,7 +6,7 @@
 </p>
 <!-- markdownlint-enable MD033 -->
 
-[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.4.0)
+[![Version](https://img.shields.io/badge/version-1.4.1-blue.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.4.1)
 [![Release](https://img.shields.io/github/release/abir2afridi/NexLoad-Apk.svg)](https://github.com/abir2afridi/NexLoad-Apk/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-brightgreen.svg)](https://developer.android.com/about/versions/nougat)
@@ -62,12 +62,12 @@ An Android application for downloading videos and media from the web with a buil
 
 ## Installation
 
-### Latest Release — v1.4.0
+### Latest Release — v1.4.1
 
 | File | Size | SHA-256 |
 | ---- | ---- | ------- |
-| [app-release.apk](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.apk) | 120.38 MB | `83492113114972705bf7e009d3a380e083bfa268d3b5433cc6d8b374c112b11b` |
-| [app-release.aab](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.aab) | 119.78 MB | `a78f402c5a7d67a61b2ca3e32d921417746b7228fddb7c4b13311115604e17d9` |
+| [app-release.apk](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.apk) | TBD | `TBD (CI in progress)` |
+| [app-release.aab](https://github.com/abir2afridi/NexLoad-Apk/releases/latest/download/app-release.aab) | TBD | `TBD (CI in progress)` |
 
 ### Requirements
 
@@ -105,7 +105,11 @@ app/src/main/java/com/example/
 │   │   ├── VaultTab.kt                # PIN-protected private vault
 │   │   ├── SettingsTab.kt             # Preferences, theme, social media login, about
 │   │   ├── InstagramLoginActivity.kt  # WebView-based Instagram login for cookie capture
-│   │   └── FacebookLoginActivity.kt   # WebView-based Facebook login for cookie capture
+│   │   ├── FacebookLoginActivity.kt   # WebView-based Facebook login for cookie capture
+│   │   ├── stream/
+│   │   │   └── StreamDownloadCard.kt  # Stream download quality/card UI
+│   │   └── browser/
+│   │       └── BrowserMediaSheet.kt   # Browser media detection bottom sheet
 │   ├── components/                    # Reusable composables
 │   │   ├── TabHeader.kt               # Section header with category + title
 │   │   ├── DownloadHealthIndicators.kt # Integrity & connection health badges
@@ -119,26 +123,26 @@ app/src/main/java/com/example/
 │   │   ├── DAOs.kt                    # DownloadDao, queries
 │   │   └── AppDatabase.kt             # Room database singleton
 │   └── download/                      # Download engine + extractors
+│       ├── BaseExtractor.kt           # Shared data types, cookie stores, utilities
 │       ├── DownloadEngine.kt          # Multi/single-thread download manager
 │       ├── MediaUtils.kt              # Formatting, filename parsing
 │       ├── DownloadIntegrityWorker.kt # Periodic health checks via WorkManager
 │       ├── VideoExtractor.kt          # Multi-platform extraction router (20+ platforms)
-│       ├── YtDlpExtractor.kt          # yt-dlp wrapper (youtubedl-android)
-│       ├── GenericExtractor.kt        # 10-strategy fallback for any website
-│       ├── TikTokExtractor.kt         # TikWM API + 9 fallback strategies
-│       ├── TikTokCookieStore.kt       # Shared CookieJar for TikTok requests
-│       ├── InstagramExtractor.kt      # GraphQL POST → page HTML → JSON-LD
-│       ├── InstagramCookieStore.kt    # Instagram session cookie storage
-│       ├── FacebookExtractor.kt       # m.facebook → www → mbasic extraction
-│       ├── TwitterExtractor.kt        # og:video + player:stream + CDN
-│       ├── RedditExtractor.kt         # JSON API extraction
-│       ├── PinterestExtractor.kt      # 5-strategy extraction
-│       ├── SoundCloudExtractor.kt     # oEmbed + og:audio
-│       ├── VimeoExtractor.kt          # oEmbed extraction
-│       ├── TwitchExtractor.kt         # og:video + CDN
-│       ├── DailymotionExtractor.kt    # oEmbed extraction
-│       ├── TumblrExtractor.kt         # og:video + CDN
-│       └── SteamExtractor.kt          # Embedded Steam video page extraction
+│       └── stream/                    # Platform-specific stream extractors
+│           ├── TikTokExtractor.kt     # TikWM API + 9 fallback strategies
+│           ├── TikTokCookieStore.kt   # Shared CookieJar for TikTok requests
+│           ├── InstagramExtractor.kt  # GraphQL POST → page HTML → JSON-LD
+│           ├── FacebookExtractor.kt   # m.facebook → www → mbasic extraction
+│           ├── TwitterExtractor.kt    # og:video + player:stream + CDN
+│           ├── RedditExtractor.kt     # JSON API extraction
+│           ├── PinterestExtractor.kt  # 5-strategy extraction
+│           ├── SoundCloudExtractor.kt # oEmbed + og:audio
+│           ├── VimeoExtractor.kt      # oEmbed extraction
+│           ├── TwitchExtractor.kt     # og:video + CDN
+│           ├── DailymotionExtractor.kt# oEmbed extraction
+│           ├── TumblrExtractor.kt     # og:video + CDN
+│           ├── YtDlpExtractor.kt      # yt-dlp wrapper (youtubedl-android)
+│           └── GenericExtractor.kt    # 10-strategy fallback for any website
 ```
 
 ## Instagram Extraction — Detailed Process
