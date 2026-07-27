@@ -1,5 +1,14 @@
-package com.example.data.download
+package com.example.data.download.stream
 
+import com.example.data.download.TikTokVideoData
+import android.util.Log
+import okhttp3.Request
+import java.util.regex.Pattern
+
+import com.example.data.download.EXTRACTOR_TAG
+import com.example.data.download.extractorClient
+import com.example.data.download.fetchPageHtml
+import com.example.data.download.extractMetaContent
 // =========================================================================
 // FACEBOOK VIDEO EXTRACTION — DO NOT DELETE OR MODIFY WITHOUT READING
 // =========================================================================
@@ -43,9 +52,6 @@ package com.example.data.download
 // - If extraction fails, check if the video is private/region-locked
 // =========================================================================
 
-import android.util.Log
-import okhttp3.Request
-import java.util.regex.Pattern
 
 internal fun extractFacebook(url: String): TikTokVideoData? {
     val resolved = resolveFbShareUrl(url) ?: url

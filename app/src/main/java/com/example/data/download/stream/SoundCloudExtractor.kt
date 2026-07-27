@@ -1,10 +1,19 @@
-package com.example.data.download
+package com.example.data.download.stream
+import com.example.data.download.TikTokVideoData
 
 import android.util.Log
 import com.squareup.moshi.Types
 import okhttp3.Request
 import java.util.regex.Pattern
 
+import com.example.data.download.EXTRACTOR_TAG
+import com.example.data.download.extractorClient
+import com.example.data.download.extractorMoshi
+import com.example.data.download.rootMapType
+import com.example.data.download.fetchPageHtml
+import com.example.data.download.resolveRedirect
+import com.example.data.download.extractMetaContent
+import com.example.data.download.MOBILE_UA
 internal fun extractSoundCloud(url: String): TikTokVideoData? {
     val resolved = resolveRedirect(url) ?: url
     Log.d(EXTRACTOR_TAG, "Extracting SoundCloud: $resolved")

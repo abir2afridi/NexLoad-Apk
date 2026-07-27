@@ -2,6 +2,20 @@ package com.example.data.download
 
 import android.util.Log
 import okhttp3.Request
+import com.example.data.download.stream.TikTokCookieStore
+import com.example.data.download.stream.YtDlpExtractor
+import com.example.data.download.stream.extractDailymotion
+import com.example.data.download.stream.extractFacebook
+import com.example.data.download.stream.extractGeneric
+import com.example.data.download.stream.extractInstagram
+import com.example.data.download.stream.extractPinterest
+import com.example.data.download.stream.extractReddit
+import com.example.data.download.stream.extractSoundCloud
+import com.example.data.download.stream.extractTikTok
+import com.example.data.download.stream.extractTumblr
+import com.example.data.download.stream.extractTwitch
+import com.example.data.download.stream.extractTwitter
+import com.example.data.download.stream.extractVimeo
 
 object VideoExtractor {
     fun extract(url: String): Result<TikTokVideoData> {

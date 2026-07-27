@@ -14,7 +14,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -49,12 +48,11 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
-import com.example.data.download.TikTokVideoData
-import com.example.data.download.VideoExtractor
 
 import com.example.R
 import com.example.ui.components.DownloadHealthIndicators
 import com.example.ui.components.DownloadDialog
+import com.example.ui.screens.stream.StreamDownloadCard
 import com.example.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -102,65 +100,6 @@ fun DashboardTab(
     val dashboardBgStyle by viewModel.dashboardBgStyle.collectAsState()
     val isGlassmorphism by viewModel.isGlassmorphism.collectAsState()
 
-    var linkText by remember { mutableStateOf("") }
-
-    data class PlatformInfo(val name: String, val faviconUrl: String)
-    fun detectPlatform(url: String): PlatformInfo? {
-        if (!url.startsWith("http")) return null
-        return try {
-            val host = android.net.Uri.parse(url).host?.lowercase() ?: return null
-            when {
-                host.contains("tiktok.com") || host.contains("vt.tiktok.com") || host.contains("vm.tiktok.com") ->
-                    PlatformInfo("TikTok", "https://www.google.com/s2/favicons?sz=64&domain=tiktok.com")
-                host.contains("youtube.com") || host.contains("youtu.be") ->
-                    PlatformInfo("YouTube", "https://www.google.com/s2/favicons?sz=64&domain=youtube.com")
-                host.contains("instagram.com") ->
-                    PlatformInfo("Instagram", "https://www.google.com/s2/favicons?sz=64&domain=instagram.com")
-                host.contains("facebook.com") || host.contains("fb.watch") || host.contains("fb.com") ->
-                    PlatformInfo("Facebook", "https://www.google.com/s2/favicons?sz=64&domain=facebook.com")
-                host.contains("twitter.com") || host.contains("x.com") ->
-                    PlatformInfo("X / Twitter", "https://www.google.com/s2/favicons?sz=64&domain=x.com")
-                host.contains("reddit.com") || host.contains("redd.it") ->
-                    PlatformInfo("Reddit", "https://www.google.com/s2/favicons?sz=64&domain=reddit.com")
-                host.contains("pinterest.com") || host.contains("pin.it") ->
-                    PlatformInfo("Pinterest", "https://www.google.com/s2/favicons?sz=64&domain=pinterest.com")
-                host.contains("soundcloud.com") ->
-                    PlatformInfo("SoundCloud", "https://www.google.com/s2/favicons?sz=64&domain=soundcloud.com")
-                host.contains("vimeo.com") || host.contains("player.vimeo.com") ->
-                    PlatformInfo("Vimeo", "https://www.google.com/s2/favicons?sz=64&domain=vimeo.com")
-                host.contains("twitch.tv") || host.contains("clips.twitch.tv") ->
-                    PlatformInfo("Twitch", "https://www.google.com/s2/favicons?sz=64&domain=twitch.tv")
-                host.contains("dailymotion.com") || host.contains("dai.ly") ->
-                    PlatformInfo("Dailymotion", "https://www.google.com/s2/favicons?sz=64&domain=dailymotion.com")
-                host.contains("tumblr.com") ->
-                    PlatformInfo("Tumblr", "https://www.google.com/s2/favicons?sz=64&domain=tumblr.com")
-                host.contains("linkedin.com") || host.contains("linke.in") ->
-                    PlatformInfo("LinkedIn", "https://www.google.com/s2/favicons?sz=64&domain=linkedin.com")
-                host.contains("spotify.com") || host.contains("open.spotify.com") ->
-                    PlatformInfo("Spotify", "https://www.google.com/s2/favicons?sz=64&domain=spotify.com")
-                host.contains("streamable.com") ->
-                    PlatformInfo("Streamable", "https://www.google.com/s2/favicons?sz=64&domain=streamable.com")
-                host.contains("imgur.com") ->
-                    PlatformInfo("Imgur", "https://www.google.com/s2/favicons?sz=64&domain=imgur.com")
-                host.contains("flickr.com") ->
-                    PlatformInfo("Flickr", "https://www.google.com/s2/favicons?sz=64&domain=flickr.com")
-                host.contains("rumble.com") ->
-                    PlatformInfo("Rumble", "https://www.google.com/s2/favicons?sz=64&domain=rumble.com")
-                host.contains("odysee.com") || host.contains("lbry.tv") ->
-                    PlatformInfo("Odysee", "https://www.google.com/s2/favicons?sz=64&domain=odysee.com")
-                host.contains("bitchute.com") ->
-                    PlatformInfo("Bitchute", "https://www.google.com/s2/favicons?sz=64&domain=bitchute.com")
-                host.contains("streamja.com") ->
-                    PlatformInfo("Streamja", "https://www.google.com/s2/favicons?sz=64&domain=streamja.com")
-                host.contains("clippit.com") || host.contains("a.pomfe.co") ->
-                    PlatformInfo("Clippit", "https://www.google.com/s2/favicons?sz=64&domain=clippit.com")
-                else -> PlatformInfo("Website", "https://www.google.com/s2/favicons?sz=64&domain=$host")
-            }
-        } catch (e: Exception) { null }
-    }
-
-    val detectedPlatform = remember(linkText) { detectPlatform(linkText) }
-
     val greeting = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         when (hour) {
@@ -196,12 +135,6 @@ fun DashboardTab(
     }
 
     var isOptimizing by remember { mutableStateOf(false) }
-
-    var extractedVideoInfo by remember { mutableStateOf<TikTokVideoData?>(null) }
-    var isExtracting by remember { mutableStateOf(false) }
-    var extractionError by remember { mutableStateOf<String?>(null) }
-    var selectedDownloadType by remember { mutableIntStateOf(0) }
-    var isDownloadingFromStream by remember { mutableStateOf(false) }
 
     // Storage stats
     val storageStats = remember(downloads) {
@@ -599,8 +532,6 @@ fun DashboardTab(
                                         val speedText = MediaUtils.formatSpeed(totalSpeed)
                                         val timeText = if (totalRemainingTime != null) " • $totalRemainingTime" else ""
                                         "Downloading • $speedText$timeText"
-                                    } else if (detectedPlatform != null) {
-                                        "${detectedPlatform.name} Video Detected"
                                     } else {
                                         "Ready to Download"
                                     },
@@ -612,22 +543,13 @@ fun DashboardTab(
                             }
                         }
 
-                        // Show favicon when platform detected, otherwise cloud icon
-                        if (detectedPlatform != null && activeTasksCount == 0) {
-                            AsyncImage(
-                                model = detectedPlatform.faviconUrl,
-                                contentDescription = detectedPlatform.name,
-                                modifier = Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)),
-                                contentScale = ContentScale.Fit
-                            )
-                        } else {
-                            Icon(
-                                imageVector = if (activeTasksCount > 0) Icons.Default.CloudSync else Icons.Outlined.CloudQueue,
-                                contentDescription = null,
-                                tint = if (activeTasksCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
+                        // Show cloud icon
+                        Icon(
+                            imageVector = if (activeTasksCount > 0) Icons.Default.CloudSync else Icons.Outlined.CloudQueue,
+                            contentDescription = null,
+                            tint = if (activeTasksCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
 
                     Column(
@@ -675,469 +597,8 @@ fun DashboardTab(
                                 }
                             }
                         }
-                        Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    val faviconUrl = remember(linkText) {
-                                        if (linkText.startsWith("http")) {
-                                            try {
-                                                val domain = android.net.Uri.parse(linkText).host
-                                                if (!domain.isNullOrBlank()) {
-                                                    "https://www.google.com/s2/favicons?sz=64&domain=$domain"
-                                                } else null
-                                            } catch (e: Exception) { null }
-                                        } else null
-                                    }
-
-                                    if (faviconUrl != null) {
-                                        AsyncImage(
-                                            model = faviconUrl,
-                                            contentDescription = "Favicon",
-                                            modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)),
-                                            contentScale = ContentScale.Fit
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Link,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    TextField(
-                                        value = linkText,
-                                        onValueChange = { linkText = it },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .focusable(),
-                                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                                        singleLine = true,
-                                        placeholder = {
-                                            Text(
-                                                text = "Paste link here...",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                            )
-                                        },
-                                        colors = TextFieldDefaults.colors(
-                                            focusedContainerColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent,
-                                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                                            unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
-                                            cursorColor = MaterialTheme.colorScheme.primary
-                                        )
-                                    )
-                                    IconButton(
-                                        onClick = {
-                                            val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                                            val clipData = clip?.primaryClip
-                                            if (clipData != null && clipData.itemCount > 0) {
-                                                val text = clipData.getItemAt(0).text?.toString()
-                                                if (!text.isNullOrBlank()) {
-                                                    linkText = text
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.ContentPaste,
-                                            contentDescription = "Paste",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    if (linkText.isNotBlank()) {
-                                        IconButton(
-                                            onClick = { linkText = "" },
-                                            modifier = Modifier.size(28.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Clear",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (extractionError != null) {
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.errorContainer
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(Icons.Default.ErrorOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
-                                        Text(
-                                            text = extractionError!!,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onErrorContainer,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        IconButton(onClick = { extractionError = null }, modifier = Modifier.size(20.dp)) {
-                                            Icon(Icons.Default.Close, contentDescription = "Dismiss", modifier = Modifier.size(14.dp))
-                                        }
-                                    }
-                                }
-                            }
-
-                            val hasLink = linkText.isNotBlank()
-                            Surface(
-                                onClick = {
-                                    if (hasLink && !isExtracting) {
-                                        isExtracting = true
-                                        extractionError = null
-                                        extractedVideoInfo = null
-                                        scope.launch {
-                                            try {
-                                                val result = withContext(Dispatchers.IO) {
-                                                    VideoExtractor.extract(linkText)
-                                                }
-                                                result.fold(
-                                                    onSuccess = { data ->
-                                                        extractedVideoInfo = data
-                                                    },
-                                                    onFailure = { e ->
-                                                        extractionError = e.message ?: "Extraction failed"
-                                                    }
-                                                )
-                                            } catch (e: Exception) {
-                                                extractionError = e.message ?: "Extraction failed"
-                                            } finally {
-                                                isExtracting = false
-                                            }
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (hasLink && !isExtracting) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                                border = if (!hasLink || isExtracting) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)) else null
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    if (isExtracting) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(18.dp),
-                                            strokeWidth = 2.dp,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Search,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp),
-                                            tint = if (hasLink) MaterialTheme.colorScheme.onPrimary
-                                                  else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (isExtracting) "Analyzing..." else "Analyze",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = if (hasLink && !isExtracting) MaterialTheme.colorScheme.onPrimary
-                                               else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
-                                    )
-                                }
-                            }
-
-                            // =========================================================================
-                            // VIDEO INFO CARD — Always visible frame, content swaps after extraction
-                            // =========================================================================
-                            // DESIGN:
-                            // - The card container is ALWAYS rendered (not gated behind extractedVideoInfo != null)
-                            // - Thumbnail area, Title/Author/Duration labels are always visible
-                            // - Before extraction: shows placeholder icons/values
-                            // - After extraction: placeholder values are replaced with real data
-                            // - Quality (Auto/HD) and Format (Video/Audio) buttons only appear after fetch
-                            // - Download button only appears after fetch
-                            // - Clear/Dismiss button always visible to reset the form
-                            //
-                            // RULES:
-                            // - NEVER gate this entire card behind extractedVideoInfo — it must always be visible
-                            // - NEVER remove the label text (Title, Author, Duration, Output) — they are static
-                            // =========================================================================
-                            val info = extractedVideoInfo
-                            val hasAudio = info?.audioUrl?.isNullOrBlank() == false
-                            val hasVideo = info?.videoUrl?.isNullOrBlank() == false
-
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    // ---- THUMBNAIL FRAME (always visible) ----
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .heightIn(min = 80.dp, max = 160.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (info != null && info.thumbnail.isNotBlank()) {
-                                            AsyncImage(
-                                                model = info.thumbnail,
-                                                contentDescription = null,
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = ContentScale.Crop,
-                                            )
-                                        } else {
-                                            val previewComposition by rememberLottieComposition(
-                                                LottieCompositionSpec.Url("https://lottie.host/e7c3629f-2bb1-4259-bf48-69d90b554aac/0ZOTo1G5Dc.lottie")
-                                            )
-                                            LottieAnimation(
-                                                composition = previewComposition,
-                                                iterations = LottieConstants.IterateForever,
-                                                speed = 1f,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .heightIn(min = 80.dp, max = 160.dp)
-                                                    .background(Color.LightGray)
-                                            )
-                                        }
-                                    }
-
-                                    // ---- TITLE (always visible label + value) ----
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "Title",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.width(64.dp)
-                                        )
-                                        Text(
-                                            text = if (info != null && info.title.isNotBlank()) info.title else "—",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (info != null) MaterialTheme.colorScheme.onSurface
-                                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-
-                                    // ---- AUTHOR (always visible label + value) ----
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "Author",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.width(64.dp)
-                                        )
-                                        Text(
-                                            text = if (info != null && info.author.isNotBlank()) info.author else "—",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (info != null) MaterialTheme.colorScheme.onSurface
-                                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-
-                                    // ---- DURATION (always visible label + value) ----
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "Duration",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.width(64.dp)
-                                        )
-                                        Text(
-                                            text = if (info != null && info.duration > 0) formatDuration(info.duration) else "—",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (info != null) MaterialTheme.colorScheme.onSurface
-                                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(vertical = 2.dp),
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                    )
-
-                                    // ---- OUTPUT (always visible label) ----
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "Output",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.width(64.dp)
-                                        )
-                                        Text(
-                                            text = if (info != null) "Ready to download" else "Awaiting analysis...",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = if (info != null) MaterialTheme.colorScheme.onSurface
-                                                   else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                        )
-                                    }
-
-                                    // ---- QUALITY & FORMAT — only visible after successful extraction ----
-                                    if (info != null) {
-                                        // Quality selector (Auto / HD)
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            listOf("Auto", "HD").forEachIndexed { index, quality ->
-                                                Surface(
-                                                    onClick = { },
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    color = if (index == 0) MaterialTheme.colorScheme.primaryContainer
-                                                            else MaterialTheme.colorScheme.surfaceContainerHigh
-                                                ) {
-                                                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(
-                                                            if (index == 0) Icons.Default.PlayCircle else Icons.Default.VideoLibrary,
-                                                            contentDescription = null, modifier = Modifier.size(16.dp)
-                                                        )
-                                                        Spacer(Modifier.width(6.dp))
-                                                        Text(quality, style = MaterialTheme.typography.labelLarge)
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        // Format selector (Video / Audio)
-                                        if (hasAudio || hasVideo) {
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                if (hasVideo) {
-                                                    Surface(
-                                                        onClick = { selectedDownloadType = 0 },
-                                                        shape = RoundedCornerShape(10.dp),
-                                                        color = if (selectedDownloadType == 0) MaterialTheme.colorScheme.primaryContainer
-                                                                else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                        border = if (selectedDownloadType == 0) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                                                    ) {
-                                                        Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                            Icon(Icons.Outlined.VideoFile, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                            Spacer(Modifier.width(6.dp))
-                                                            Text("Video", style = MaterialTheme.typography.labelLarge)
-                                                        }
-                                                    }
-                                                }
-                                                if (hasAudio) {
-                                                    Surface(
-                                                        onClick = { selectedDownloadType = 1 },
-                                                        shape = RoundedCornerShape(10.dp),
-                                                        color = if (selectedDownloadType == 1) MaterialTheme.colorScheme.primaryContainer
-                                                                else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                        border = if (selectedDownloadType == 1) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                                                    ) {
-                                                        Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                            Icon(Icons.Outlined.Audiotrack, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                            Spacer(Modifier.width(6.dp))
-                                                            Text("Audio", style = MaterialTheme.typography.labelLarge)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        // Download button
-                                        Surface(
-                                            onClick = {
-                                                if (isDownloadingFromStream) return@Surface
-                                                isDownloadingFromStream = true
-                                                scope.launch {
-                                                    try {
-                                                        val downloadUrl = if (selectedDownloadType == 1) {
-                                                            info.audioUrl ?: info.videoUrl
-                                                        } else {
-                                                            info.videoUrlNoWatermark ?: info.videoUrl
-                                                        }
-                                                        if (downloadUrl != null) {
-                                                            viewModel.addDownload(
-                                                                url = downloadUrl,
-                                                                suggestedTitle = info.title.ifBlank { "Video" },
-                                                                quality = "Auto",
-                                                                isAudioOnly = selectedDownloadType == 1,
-                                                                customHeaders = info.httpHeaders,
-                                                                sourceUrl = info.sourceUrl
-                                                            )
-                                                            Toast.makeText(context, "Download queued → view progress in Downloads tab", Toast.LENGTH_SHORT).show()
-                                                            extractedVideoInfo = null
-                                                        } else {
-                                                            Toast.makeText(context, "No download URL available", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                                                    } finally {
-                                                        isDownloadingFromStream = false
-                                                    }
-                                                }
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(12.dp),
-                                            color = MaterialTheme.colorScheme.primary
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(12.dp),
-                                                horizontalArrangement = Arrangement.Center,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    if (selectedDownloadType == 1) Icons.Default.MusicNote else Icons.Default.Download,
-                                                    contentDescription = null, modifier = Modifier.size(18.dp),
-                                                    tint = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(
-                                                    text = if (isDownloadingFromStream) "Starting..." else if (selectedDownloadType == 1) "Download Audio" else "Download Video",
-                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                    color = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // Clear / Dismiss button (always visible)
-                                    Surface(
-                                        onClick = {
-                                            extractedVideoInfo = null
-                                            extractionError = null
-                                            linkText = ""
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(10.dp),
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Spacer(Modifier.width(6.dp))
-                                            Text("Clear", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        StreamDownloadCard(viewModel = viewModel)
+                    }
                 }
             }
         }
@@ -1313,13 +774,6 @@ fun MinimalCard(onClick: (() -> Unit)?, modifier: Modifier = Modifier, container
 private fun hexOrNull(hex: String): Color? {
     if (hex == "Default") return null
     return try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { null }
-}
-
-private fun formatDuration(seconds: Long): String {
-    if (seconds <= 0) return "00:00"
-    val mins = seconds / 60
-    val secs = seconds % 60
-    return "${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}"
 }
 
 // Storage space details helper

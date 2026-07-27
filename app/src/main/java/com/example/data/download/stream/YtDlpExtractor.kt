@@ -1,4 +1,5 @@
-package com.example.data.download
+package com.example.data.download.stream
+import com.example.data.download.TikTokVideoData
 
 import android.util.Log
 import com.yausername.youtubedl_android.YoutubeDL
