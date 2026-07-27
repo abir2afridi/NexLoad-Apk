@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -37,6 +38,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
@@ -93,6 +97,7 @@ fun SettingsTab(
     var showNetworkScreen by remember { mutableStateOf(false) }
 
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+
     var showBatteryHint by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -102,20 +107,19 @@ fun SettingsTab(
             }
         )
     }
-    val batteryIntent =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = Uri.parse("package:${context.packageName}")
-            }
-        } else {
-            Intent()
-        }
-    val batteryLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                showBatteryHint = !pm.isIgnoringBatteryOptimizations(context.packageName)
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    showBatteryHint = !pm.isIgnoringBatteryOptimizations(context.packageName)
+                }
             }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     BackHandler {
         when {
@@ -209,11 +213,14 @@ fun SettingsTab(
                         .fillMaxWidth()
                         .clickable {
                             try {
-                                batteryLauncher.launch(batteryIntent)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                    showBatteryHint = !pm.isIgnoringBatteryOptimizations(context.packageName)
-                                }
-                            } catch (_: Exception) { }
+                                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                Toast.makeText(context, "Tap 'NexLoad' → select 'Don't Optimize'", Toast.LENGTH_LONG).show()
+                            } catch (_: ActivityNotFoundException) {
+                                context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                })
+                                Toast.makeText(context, "App info → Battery → Battery Optimization → Don't Optimize", Toast.LENGTH_LONG).show()
+                            }
                         }
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
