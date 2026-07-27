@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.4.1] — 2026-07-27
+
+### ♻️ Refactoring
+
+- **Modular Download Extraction** — All platform-specific extractors (TikTok, Facebook, Instagram, Pinterest, Reddit, SoundCloud, Tumblr, Twitch, Twitter/X, Vimeo, Dailymotion, YouTube-DL, Generic) moved into a dedicated `stream` package under `com.example.data.download.stream`, decoupling them from the core `VideoExtractor` and `DownloadEngine` for improved maintainability.
+- **Browser Media Detection UI** — Inline media sheet logic extracted into a reusable `BrowserMediaSheet` component under `ui/screens/browser/`.
+- **Stream Download Card** — Dashboard download card logic consolidated into `StreamDownloadCard` under `ui/screens/stream/`.
+- **Import Cleanup** — Removed unused imports and state variables from `DashboardTab` and `BrowserTab`.
+
+### 🐞 Bug Fixes
+
+- **Battery Optimization Settings** — Refactored the battery optimization request flow; the app now directs users to the general battery settings or app details page with clear Toast instructions, and a `LifecycleEventObserver` automatically refreshes the battery hint state on resume.
+
+### 📦 Build / CI / Docs
+
+- **README Sync** — Updated version badges, binary checksums, and file sizes for the v1.4.0 release; markdown linting applied.
+- **v1.4.1 Release** — Version bumped, new signed APK and AAB outputs.
+
+---
+
 ## [1.4.0] — 2026-07-27
 
 ### 🚀 Features
@@ -166,6 +186,7 @@
 - File library with category filtering
 - Material 3 design with customizable themes
 
+[1.4.1]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.4.1
 [1.4.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.4.0
 [1.3.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.3.0
 [1.2.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.2.0

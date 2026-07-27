@@ -1,32 +1,30 @@
-# NexLoad v1.4.0 Release Notes
+# NexLoad v1.4.1 Release Notes
 
 **Release Date:** July 27, 2026
 
 ## Overview
 
-v1.4.0 focuses on theming, localization, and UI polish. The app now supports ~100 languages with persistent language selection, expanded Material You dynamic color integration, and enhanced Look & Feel customization. All screens have been audited for consistent 120dp bottom clearance against the floating navigation bar.
+v1.4.1 is a maintenance release focused on codebase modularization and a battery optimization settings fix. The download extraction engine has been restructured for better maintainability, and the battery optimization request flow no longer relies on a direct intent that may fail on certain devices.
 
 ## What's Changed
 
-### 🚀 Features
+### ♻️ Refactoring
 
-- **Language Selection & Localization** — Choose from ~100 languages including Bengali/Bangla. Language preference is persisted and applied system-wide via `Configuration.setLocale`. The activity recreates automatically on selection.
-- **DotLottie Animation Placeholder** — Video preview thumbnails on the dashboard now show a smooth animated loading indicator (via Lottie) while extraction is in progress, replacing the previous static placeholder.
-- **Dynamic Color Support** — Full Material You dynamic color integration for Android 12+, with automatic and manual theme toggling.
-- **Extended Theme Customization** — New options for typography, app bar styling, and surface style in the Look & Feel settings screen.
-- **Advanced Layout Customization** — Additional display and layout preference controls for a more personalized experience.
+- **Modular Download Extraction** — All 14 platform-specific extractors (TikTok, Facebook, Instagram, Pinterest, Reddit, SoundCloud, Tumblr, Twitch, Twitter/X, Vimeo, Dailymotion, YouTube-DL, Generic) moved into a dedicated `stream` package under `com.example.data.download.stream`. This decouples them from the core `VideoExtractor` and `DownloadEngine`, reducing complexity and making the system easier to extend.
+- **Browser Media Sheet** — Inline media detection logic extracted into a reusable `BrowserMediaSheet` component.
+- **Stream Download Card** — Dashboard download card logic consolidated into a dedicated `StreamDownloadCard` component.
+- **Import & State Cleanup** — Unused imports and stale local state removed from `DashboardTab` and `BrowserTab`.
 
-### ♻️ Refactoring & Polish
+### 🐞 Bug Fixes
 
-- **120dp Bottom Clearance** — Comprehensive UI audit across all 21 screens ensures no content is hidden behind the floating navigation bar. 6 key screens received specific padding/spacer updates (Browser Home, Browser Tab, Format Settings, Look & Feel, Network Settings, Subtitle Settings).
-- **WebView Container Restructure** — Browser tab WebView wrapped in Column layout with a trailing spacer for proper bottom clearance.
-- **LanguageData Module** — Language list extracted into a dedicated module (`LanguageData.kt`) for cleaner code organization and easier maintenance.
+- **Battery Optimization Settings Flow** — Refactored to use a more robust approach. Instead of a direct optimization request intent (which can fail), the app now directs users to the general battery settings or app details page with clear Toast instructions. A `LifecycleEventObserver` automatically refreshes the battery hint state when the activity resumes.
 
 ### 📦 Build / CI / Docs
 
-- Version bumped to 1.4.0 (versionCode 5)
-- Full CI release build with signed APK and AAB outputs
+- README.md updated with v1.4.0 release checksums and markdown linting fixes.
+- Version bumped to 1.4.1 (versionCode 6).
+- Full CI release build with signed APK and AAB outputs.
 
-## Full Changelog
+## Changelog
 
 See [CHANGELOG.md](../CHANGELOG.md) for the complete list of commits.
